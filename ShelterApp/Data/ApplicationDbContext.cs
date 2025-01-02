@@ -11,6 +11,8 @@ namespace ShelterApp
 
         public DbSet<Shelter> Shelters { get; set; }
         public DbSet<Address> Addresses { get; set; }
+        public DbSet<Animal> Animals { get; set; }
+        public DbSet<AdoptionRequest> AdoptionRequests { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
