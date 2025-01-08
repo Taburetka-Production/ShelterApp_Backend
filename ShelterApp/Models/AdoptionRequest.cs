@@ -10,7 +10,7 @@ namespace ShelterApp
         public string UserId { get; set; }
 
         [ForeignKey("UserId")]
-        public IdentityUser User { get; set; }
+        public User User { get; set; }
 
         [Required]
         public Guid AnimalId { get; set; }

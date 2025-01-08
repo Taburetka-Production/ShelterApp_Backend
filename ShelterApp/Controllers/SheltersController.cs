@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ShelterApp
 {
     [ApiController]
-    [Route("[controller]")]
+    [Route("api/[controller]")]
     public class SheltersController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
