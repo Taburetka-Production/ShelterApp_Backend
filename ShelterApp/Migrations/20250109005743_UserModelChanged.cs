@@ -26,15 +26,13 @@ namespace ShelterApp.Migrations
                 name: "Name",
                 table: "AspNetUsers",
                 type: "text",
-                nullable: false,
-                defaultValue: "");
+                nullable: true);
 
             migrationBuilder.AddColumn<string>(
                 name: "Surname",
                 table: "AspNetUsers",
                 type: "text",
-                nullable: false,
-                defaultValue: "");
+                nullable: true);
         }
 
         /// <inheritdoc />

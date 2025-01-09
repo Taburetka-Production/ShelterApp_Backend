@@ -12,7 +12,7 @@ using ShelterApp;
 namespace ShelterApp.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250108231717_UserModelChanged")]
+    [Migration("20250109005743_UserModelChanged")]
     partial class UserModelChanged
     {
         /// <inheritdoc />
@@ -361,7 +361,6 @@ namespace ShelterApp.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("NormalizedEmail")
@@ -385,7 +384,6 @@ namespace ShelterApp.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Surname")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("TwoFactorEnabled")
