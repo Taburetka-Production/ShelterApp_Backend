@@ -12,6 +12,8 @@ namespace ShelterApp
         [Required]
         public int ReviewsCount { get; set; }
         [Required]
+        public int AnimalsCount { get; set; }
+        [Required]
         public string Description { get; set; }
         [Required]
         public string ImageUrl { get; set; }
