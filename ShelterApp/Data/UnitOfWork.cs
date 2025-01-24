@@ -5,26 +5,26 @@ namespace ShelterApp.Data
     public class UnitOfWork : IUnitOfWork
     {
         private ApplicationDbContext _context;
-        private GenericRepository<User> _userRepository;
-        private GenericRepository<Animal> _animalRepository;
-        private GenericRepository<Shelter> _shelterRepository;
-        private GenericRepository<Address> _addressRepository;
-        private GenericRepository<AdoptionRequest> _adoptionRequestRepository;
+        private IRepository<User> _userRepository;
+        private IRepository<Animal> _animalRepository;
+        private IRepository<Shelter> _shelterRepository;
+        private IRepository<Address> _addressRepository;
+        private IRepository<AdoptionRequest> _adoptionRequestRepository;
 
         public UnitOfWork(DbContextOptions<ApplicationDbContext> options)
         {
             _context = new ApplicationDbContext(options);
         }
 
-        public GenericRepository<User> UserRepository =>
+        public IRepository<User> UserRepository =>
             _userRepository ??= new GenericRepository<User>(_context);
-        public GenericRepository<Animal> AnimalRepository =>
+        public IRepository<Animal> AnimalRepository =>
             _animalRepository ??= new GenericRepository<Animal>(_context);
-        public GenericRepository<Shelter> ShelterRepository =>
+        public IRepository<Shelter> ShelterRepository =>
             _shelterRepository ??= new GenericRepository<Shelter>(_context);
-        public GenericRepository<Address> AddressRepository =>
+        public  IRepository<Address> AddressRepository =>
             _addressRepository ??= new GenericRepository<Address>(_context);
-        public GenericRepository<AdoptionRequest> AdoptionRequestRepository =>
+        public IRepository<AdoptionRequest> AdoptionRequestRepository =>
             _adoptionRequestRepository ??= new GenericRepository<AdoptionRequest>(_context);
 
         public void Save()

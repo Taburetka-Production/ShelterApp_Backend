@@ -1,75 +1,94 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
 
 namespace ShelterApp.Data
 {
-    public class GenericRepository<TEntity> where TEntity : class
+    public class GenericRepository<TEntity> : IRepository<TEntity>
+        where TEntity : class
     {
-        internal ApplicationDbContext context;
-        internal DbSet<TEntity> dbSet;
+        internal ApplicationDbContext _context;
+        internal DbSet<TEntity> _dbSet;
 
         public GenericRepository(ApplicationDbContext context)
         {
-            this.context = context;
-            this.dbSet = context.Set<TEntity>();
+            _context = context;
+            _dbSet = _context.Set<TEntity>();
         }
 
-        public virtual IEnumerable<TEntity> Get(
+        public async Task<IEnumerable<TEntity>> GetAllAsync(
             Expression<Func<TEntity, bool>> filter = null,
             Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null,
-            string includeProperties = "")
+            string? includeProperties = null)
         {
-            IQueryable<TEntity> query = dbSet;
+            IQueryable<TEntity> query = _dbSet;
 
             if (filter != null)
             {
                 query = query.Where(filter);
             }
 
-            foreach (var includeProperty in includeProperties.Split
-                (new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+            if (includeProperties != null)
             {
-                query = query.Include(includeProperty);
+                foreach (var includeProperty in includeProperties.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    query = query.Include(includeProperty);
+                }
             }
 
             if (orderBy != null)
             {
-                return orderBy(query).ToList();
+                return await orderBy(query).ToListAsync();
             }
             else
             {
-                return query.ToList();
+                return await query.ToListAsync();
             }
         }
-        public virtual TEntity GetByID(object id)
+        public async Task<TEntity?> GetByIdAsync(object id)
         {
-            return dbSet.Find(id);
+            return await _dbSet.FindAsync(id);
         }
 
-        public virtual void Insert(TEntity entity)
+        public async Task AddAsync(TEntity entity)
         {
-            dbSet.Add(entity);
+            await _dbSet.AddAsync(entity);
         }
 
-        public virtual void Delete(object id)
+        public async Task AddRangeAsync(IEnumerable<TEntity> entities)
         {
-            TEntity entityToDelete = dbSet.Find(id);
-            Delete(entityToDelete);
+            await _dbSet.AddRangeAsync(entities);
         }
 
-        public virtual void Delete(TEntity entityToDelete)
+        public void Update(TEntity entity)
         {
-            if (context.Entry(entityToDelete).State == EntityState.Detached)
+            _dbSet.Attach(entity);
+            _context.Entry(entity).State = EntityState.Modified;
+        }
+
+        public void Remove(TEntity entity)
+        {
+            _dbSet.Remove(entity);
+        }
+
+        public async Task RemoveByIdAsync(object id)
+        {
+            var entity = await _dbSet.FindAsync(id);
+            if (entity != null)
             {
-                dbSet.Attach(entityToDelete);
+                _dbSet.Remove(entity);
             }
-            dbSet.Remove(entityToDelete);
         }
 
-        public virtual void Update(TEntity entityToUpdate)
+        public void RemoveRange(IEnumerable<TEntity> entities)
         {
-            dbSet.Attach(entityToUpdate);
-            context.Entry(entityToUpdate).State = EntityState.Modified;
+            _dbSet.RemoveRange(entities);
+        }
+
+        public async Task SaveChangesAsync()
+        {
+            await _context.SaveChangesAsync();
         }
     }
 }

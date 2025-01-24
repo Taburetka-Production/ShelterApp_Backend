@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ShelterApp.Data;
 
 namespace ShelterApp
 {
@@ -7,25 +8,17 @@ namespace ShelterApp
     [Route("api/[controller]")]
     public class SheltersController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private IUnitOfWork _unitOfWork;
 
-        public SheltersController(ApplicationDbContext context)
+        public SheltersController(IUnitOfWork unitOfWork)
         {
-            _context = context;
+            _unitOfWork = unitOfWork;
         }
 
-
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Shelter>>> GetShelters()
+        public async Task<ActionResult> GetShelters()
         {
-            if (_context.Shelters == null)
-            {
-                return NotFound();
-            }
-
-            var shelters = await _context.Shelters
-                .Include(s => s.Address)
-                .ToListAsync();
+            var shelters = await _unitOfWork.ShelterRepository.GetAllAsync();
 
             return Ok(shelters);
         }
