@@ -33,5 +33,7 @@ namespace ShelterApp.Data
 
         // Save changes to the database (optional, if not part of UnitOfWork)
         Task SaveChangesAsync();
+
+        Task<int> CountAsync();
     }
 }

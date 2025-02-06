@@ -72,6 +72,11 @@ namespace ShelterApp.Data
             _dbSet.Remove(entity);
         }
 
+        public async Task<int> CountAsync()
+        {
+            return await _dbSet.CountAsync();
+        }
+
         public async Task RemoveByIdAsync(object id)
         {
             var entity = await _dbSet.FindAsync(id);
