@@ -9,11 +9,9 @@ namespace ShelterApp
     public class SheltersController : ControllerBase
     {
         private IUnitOfWork _unitOfWork;
-        private readonly ApplicationDbContext _context;
-        public SheltersController(IUnitOfWork unitOfWork, ApplicationDbContext context)
+        public SheltersController(IUnitOfWork unitOfWork)
         {
             _unitOfWork = unitOfWork;
-            _context = context;
         }
 
         [HttpGet]
@@ -27,7 +25,7 @@ namespace ShelterApp
         [HttpPost]
         public async Task<ActionResult<Shelter>> CreateShelter([FromBody] Shelter shelter)
         {
-            if (_context.Shelters == null)
+            if (_unitOfWork.ShelterRepository == null)
             {
                 return Problem("Entity set 'ApplicationDbContext.Shelters' is null.");
             }
@@ -41,8 +39,8 @@ namespace ShelterApp
             try
             {
                 // Додаємо шелтер до бази даних
-                _context.Shelters.Add(shelter);
-                await _context.SaveChangesAsync();
+                await _unitOfWork.ShelterRepository.AddAsync(shelter);
+                await _unitOfWork.SaveAsync();
 
                 // Повертаємо створений ресурс з його ID
                 return CreatedAtAction(nameof(GetShelters), new { id = shelter.Id }, shelter);

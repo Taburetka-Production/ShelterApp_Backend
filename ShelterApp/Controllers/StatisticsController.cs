@@ -12,25 +12,25 @@ namespace ShelterApp.Controllers
     [ApiController]
     public class StatisticsController : Controller
     {
-        private readonly ApplicationDbContext _context;
+        private IUnitOfWork _unitOfWork;
         private readonly DateTime _initiativeStartDate = new DateTime(2025, 1, 1); // Дата початку ініціативи
 
-        public StatisticsController(ApplicationDbContext context)
+        public StatisticsController(IUnitOfWork unitOfWork)
         {
-            _context = context;
+            _unitOfWork = unitOfWork;
         }
 
         // GET: api/statistics
         [HttpGet]
         public async Task<IActionResult> GetStatistics()
         {
-            var totalShelters = await _context.Shelters.CountAsync();
-            var totalAnimals = await _context.Animals.CountAsync();
-            var totalSponsors = await _context.Users.CountAsync();
-            var totalRegions = await _context.Addresses.Select(a => a.Region).Distinct().CountAsync();
+            var totalShelters = await _unitOfWork.ShelterRepository.CountAsync();
+            var totalAnimals = await _unitOfWork.AnimalRepository.CountAsync();
+            var totalSponsors = await _unitOfWork.UserRepository.CountAsync();
+            var totalRegions = await _unitOfWork.AddressRepository.RegionCount();
             var initiativeDays = (DateTime.UtcNow - _initiativeStartDate).Days;
 
-            var monthlyAdoptions = await _context.AdoptionRequests.CountAsync();
+            var monthlyAdoptions = await _unitOfWork.AdoptionRequestRepository.CountAsync();
 
             return Ok(new
             {
