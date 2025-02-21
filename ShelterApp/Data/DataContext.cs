@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using ShelterApp.Models;
+
 
 namespace ShelterApp.Data
 {
