@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 
+
 namespace ShelterApp.Data
 {
     public interface IUnitOfWork : IDisposable
