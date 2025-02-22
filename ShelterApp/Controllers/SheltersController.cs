@@ -52,41 +52,41 @@ namespace ShelterApp
             }
         }
 
-        [HttpPut("UpdateShelter")]
-        public async Task<IActionResult> UpdateShelter(Guid id, [FromBody] UpdateShelterDto dto)
-        {
-            var shelter = await _context.Shelters
-                .Include(s => s.Address)
-                .FirstOrDefaultAsync(s => s.Id == id);
+        //[HttpPut("UpdateShelter")]
+        //public async Task<IActionResult> UpdateShelter(Guid id, [FromBody] UpdateShelterDto dto)
+        //{
+        //    var shelter = await _context.Shelters
+        //        .Include(s => s.Address)
+        //        .FirstOrDefaultAsync(s => s.Id == id);
 
-            if (shelter == null)
-            {
-                return NotFound("Shelter not found.");
-            }
+        //    if (shelter == null)
+        //    {
+        //        return NotFound("Shelter not found.");
+        //    }
 
-            shelter.Name = dto.Name ?? shelter.Name;
-            shelter.Rating = dto.Rating ?? shelter.Rating;
-            shelter.ReviewsCount = dto.ReviewsCount ?? shelter.ReviewsCount;
-            shelter.AnimalsCount = dto.AnimalsCount ?? shelter.AnimalsCount;
-            shelter.Description = dto.Description ?? shelter.Description;
-            shelter.ImageUrl = dto.ImageUrl ?? shelter.ImageUrl;
+        //    shelter.Name = dto.Name ?? shelter.Name;
+        //    shelter.Rating = dto.Rating ?? shelter.Rating;
+        //    shelter.ReviewsCount = dto.ReviewsCount ?? shelter.ReviewsCount;
+        //    shelter.AnimalsCount = dto.AnimalsCount ?? shelter.AnimalsCount;
+        //    shelter.Description = dto.Description ?? shelter.Description;
+        //    shelter.ImageUrl = dto.ImageUrl ?? shelter.ImageUrl;
 
-            if (dto.AddressId.HasValue && dto.AddressId != shelter.AddressId)
-            {
-                var newAddress = await _context.Addresses.FindAsync(dto.AddressId.Value);
-                if (newAddress == null)
-                {
-                    return NotFound("New address not found.");
-                }
-                shelter.AddressId = newAddress.Id;
-                shelter.Address = newAddress;
-            }
+        //    if (dto.AddressId.HasValue && dto.AddressId != shelter.AddressId)
+        //    {
+        //        var newAddress = await _context.Addresses.FindAsync(dto.AddressId.Value);
+        //        if (newAddress == null)
+        //        {
+        //            return NotFound("New address not found.");
+        //        }
+        //        shelter.AddressId = newAddress.Id;
+        //        shelter.Address = newAddress;
+        //    }
 
-            shelter.UpdatedAtUtc = DateTime.UtcNow;
+        //    shelter.UpdatedAtUtc = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
+        //    await _context.SaveChangesAsync();
 
-            return Ok(shelter);
-        }
+        //    return Ok(shelter);
+        //}
     }
 }
