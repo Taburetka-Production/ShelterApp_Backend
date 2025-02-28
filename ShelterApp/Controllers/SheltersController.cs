@@ -17,7 +17,7 @@ namespace ShelterApp
         [HttpGet]
         public async Task<ActionResult> GetShelters()
         {
-            var shelters = await _unitOfWork.ShelterRepository.GetAllAsync();
+            var shelters = await _unitOfWork.ShelterRepository.GetAllAsync(includeProperties: "Address");
 
             return Ok(shelters);
         }

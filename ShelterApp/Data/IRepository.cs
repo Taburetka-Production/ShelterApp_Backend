@@ -10,8 +10,10 @@ namespace ShelterApp.Data
             Func<IQueryable<T>, IOrderedQueryable<T>>? orderBy = null,
             string? includeProperties = null);
 
-        // Get a single entity by its primary key (e.g., ID)
-        Task<T?> GetByIdAsync(object id);
+        // Get a single entity by its primary key (e.g., ID) (optional query customization with predicate, include, etc.)
+        Task<T?> GetByIdAsync(object id,
+            Expression<Func<T, bool>>? filter = null,
+            string? includeProperties = null);
 
         // Add a new entity
         Task AddAsync(T entity);
@@ -30,10 +32,6 @@ namespace ShelterApp.Data
 
         // Remove multiple entities
         void RemoveRange(IEnumerable<T> entities);
-
-        Task<List<T>> GetAllAsync(params string[] includeProperties);
-
-        Task<T> GetByIdAsync(object id, params string[] includeProperties);
 
         // Save changes to the database (optional, if not part of UnitOfWork)
         Task SaveChangesAsync();

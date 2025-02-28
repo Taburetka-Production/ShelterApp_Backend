@@ -29,7 +29,7 @@ namespace ShelterApp
                 return NotFound();
             }
 
-            var animals = await _unitOfWork.AnimalRepository.GetAllAsync("Shelter", "Shelter.Address");
+            var animals = await _unitOfWork.AnimalRepository.GetAllAsync(includeProperties: "Shelter,Shelter.Address");
 
             //var animals = await _context.Animals
             //    .Include(a => a.Shelter)
@@ -47,7 +47,7 @@ namespace ShelterApp
                 return NotFound();
             }
 
-            var animal = await _unitOfWork.AnimalRepository.GetByIdAsync(id, "Shelter", "Shelter.Address");
+            var animal = await _unitOfWork.AnimalRepository.GetByIdAsync(id, includeProperties: "Shelter,Shelter.Address");
 
             //var animal = await _context.Animals
             //    .Include(a => a.Shelter)
@@ -130,7 +130,7 @@ namespace ShelterApp
             await _unitOfWork.AnimalRepository.AddAsync(animal);
             await _unitOfWork.SaveAsync();
 
-            var animalWithShelert = await _unitOfWork.AnimalRepository.GetByIdAsync(animal.Id, "Shelter", "Shelter.Address");
+            var animalWithShelert = await _unitOfWork.AnimalRepository.GetByIdAsync(animal.Id, includeProperties: "Shelter,Shelter.Address");
 
             //var animalWithShelter = await _context.Animals
             //    .Include(a => a.Shelter)
