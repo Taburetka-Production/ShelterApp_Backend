@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ShelterApp.Data;
 
@@ -23,6 +24,7 @@ namespace ShelterApp
         }
 
         [HttpPost]
+        [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
         public async Task<ActionResult<Shelter>> CreateShelter([FromBody] Shelter shelter)
         {
             if (_unitOfWork.ShelterRepository == null)
@@ -53,6 +55,7 @@ namespace ShelterApp
         }
 
         //[HttpPut("UpdateShelter")]
+        //[Authorize(Roles = "ShelterAdmin,SuperAdmin")]
         //public async Task<IActionResult> UpdateShelter(Guid id, [FromBody] UpdateShelterDto dto)
         //{
         //    var shelter = await _context.Shelters

@@ -53,7 +53,7 @@ namespace ShelterApp
         }
 
         [HttpPut("ChangeAnimalInfo")]
-        //[Authorize(Roles = "ShelterAdmin,SuperAdmin")]
+        [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
         public async Task<IActionResult> UpdateAnimal(Guid id, [FromBody] UpdateAnimalDto updatedAnimalDto)
         {
             var animal = await _context.Animals.FindAsync(id);
@@ -83,7 +83,7 @@ namespace ShelterApp
         }
 
         [HttpPost("AddAnimal")]
-        //[Authorize(Roles = "ShelterAdmin,SuperAdmin")]
+        [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
         public async Task<IActionResult> CreateAnimal([FromBody] CreateAnimalDto dto)
         {
             if (!ModelState.IsValid)
