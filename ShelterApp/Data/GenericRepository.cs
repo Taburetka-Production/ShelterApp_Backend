@@ -91,6 +91,30 @@ namespace ShelterApp.Data
             _dbSet.RemoveRange(entities);
         }
 
+        public async Task<List<TEntity>> GetAllAsync(params string[] includeProperties)
+        {
+            IQueryable<TEntity> query = _dbSet;
+
+            foreach (var includeProperty in includeProperties)
+            {
+                query = query.Include(includeProperty);
+            }
+
+            return await query.ToListAsync();
+        }
+
+        public async Task<TEntity> GetByIdAsync(object id, params string[] includeProperties)
+        {
+            IQueryable<TEntity> query = _dbSet;
+
+            foreach (var includeProperty in includeProperties)
+            {
+                query = query.Include(includeProperty);
+            }
+
+            return await query.FirstOrDefaultAsync(e => EF.Property<object>(e, "Id") == id);
+        }
+
         public async Task SaveChangesAsync()
         {
             await _context.SaveChangesAsync();

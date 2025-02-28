@@ -31,6 +31,10 @@ namespace ShelterApp.Data
         // Remove multiple entities
         void RemoveRange(IEnumerable<T> entities);
 
+        Task<List<T>> GetAllAsync(params string[] includeProperties);
+
+        Task<T> GetByIdAsync(object id, params string[] includeProperties);
+
         // Save changes to the database (optional, if not part of UnitOfWork)
         Task SaveChangesAsync();
 
