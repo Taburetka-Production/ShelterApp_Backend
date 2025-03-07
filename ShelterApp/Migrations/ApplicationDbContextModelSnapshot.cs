@@ -34,7 +34,7 @@ namespace ShelterApp.Migrations
 
                     b.HasIndex("UsersId");
 
-                    b.ToTable("AnimalUser");
+                    b.ToTable("AnimalUser", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -211,7 +211,7 @@ namespace ShelterApp.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Addresses");
+                    b.ToTable("Addresses", (string)null);
                 });
 
             modelBuilder.Entity("ShelterApp.AdoptionRequest", b =>
@@ -249,7 +249,7 @@ namespace ShelterApp.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AdoptionRequests");
+                    b.ToTable("AdoptionRequests", (string)null);
                 });
 
             modelBuilder.Entity("ShelterApp.Animal", b =>
@@ -295,7 +295,7 @@ namespace ShelterApp.Migrations
 
                     b.HasIndex("ShelterId");
 
-                    b.ToTable("Animals");
+                    b.ToTable("Animals", (string)null);
                 });
 
             modelBuilder.Entity("ShelterApp.Shelter", b =>
@@ -341,7 +341,7 @@ namespace ShelterApp.Migrations
 
                     b.HasIndex("AddressId");
 
-                    b.ToTable("Shelters");
+                    b.ToTable("Shelters", (string)null);
                 });
 
             modelBuilder.Entity("ShelterApp.StatisticsView", b =>
@@ -420,9 +420,6 @@ namespace ShelterApp.Migrations
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("ShelterId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Surname")
                         .HasColumnType("text");
 
@@ -442,8 +439,6 @@ namespace ShelterApp.Migrations
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
 
-                    b.HasIndex("ShelterId");
-
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
@@ -459,7 +454,7 @@ namespace ShelterApp.Migrations
 
                     b.HasIndex("UsersId");
 
-                    b.ToTable("ShelterUser");
+                    b.ToTable("ShelterUser", (string)null);
                 });
 
             modelBuilder.Entity("AnimalUser", b =>
@@ -582,15 +577,6 @@ namespace ShelterApp.Migrations
                         .HasForeignKey("UsersId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("ShelterApp.User", b =>
-                {
-                    b.HasOne("ShelterApp.Shelter", "Shelter")
-                        .WithMany()
-                        .HasForeignKey("ShelterId");
-
-                    b.Navigation("Shelter");
                 });
 #pragma warning restore 612, 618
         }

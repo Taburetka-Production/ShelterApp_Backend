@@ -10,9 +10,9 @@ namespace ShelterApp
         public string? Name { get; set; }
         public string? Surname { get; set; }
         public int? Age { get; set; }
-        public Guid? ShelterId { get; set; }
-        [ForeignKey("ShelterId")]
-        public Shelter? Shelter { get; set; }
+        //public Guid? ShelterId { get; set; }
+        //[ForeignKey("ShelterId")]
+        //public Shelter? Shelter { get; set; }
 
         public virtual ICollection<Shelter>? Shelters { get; set; }
 
