@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using ShelterApp.Controllers;
 
 namespace ShelterApp.Data
 {
@@ -34,6 +35,13 @@ namespace ShelterApp.Data
         public async Task SaveAsync()
         {
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<StatisticsView> GetStats()
+        {
+            var stats = await _context.Statistics.FirstOrDefaultAsync();
+
+            return stats;
         }
 
         private bool disposed = false;

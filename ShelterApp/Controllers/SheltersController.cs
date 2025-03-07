@@ -22,6 +22,14 @@ namespace ShelterApp
             return Ok(shelters);
         }
 
+        [HttpGet("{id}")]
+        public async Task<ActionResult> GetShelterById(Guid id)
+        {
+            var shelter = await _unitOfWork.ShelterRepository.GetByIdAsync(id, includeProperties: "Address");
+
+            return Ok(shelter);
+        }
+
         [HttpPost]
         public async Task<ActionResult<Shelter>> CreateShelter([FromBody] Shelter shelter)
         {

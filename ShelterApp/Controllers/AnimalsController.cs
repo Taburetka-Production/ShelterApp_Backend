@@ -21,7 +21,7 @@ namespace ShelterApp
             _unitOfWork = unitOfWork;
         }
 
-        [HttpGet("get-all")]
+        [HttpGet]
         public async Task<ActionResult<IEnumerable<Animal>>> GetAnimals()
         {
             if (_unitOfWork.AnimalRepository == null)
@@ -39,7 +39,7 @@ namespace ShelterApp
             return Ok(animals);
         }
 
-        [HttpGet("get-by-id")]
+        [HttpGet("{id}")]
         public async Task<ActionResult<Animal>> GetAnimal(Guid id)
         {
             if (_unitOfWork.AnimalRepository == null)
@@ -62,7 +62,7 @@ namespace ShelterApp
             return Ok(animal);
         }
 
-        [HttpPut("change-info")]
+        [HttpPut("{id}")]
         //[Authorize(Roles = "ShelterAdmin,SuperAdmin")]
         public async Task<IActionResult> UpdateAnimal(Guid id, [FromBody] UpdateAnimalDto updatedAnimalDto)
         {
@@ -92,7 +92,7 @@ namespace ShelterApp
             return NoContent();
         }
 
-        [HttpPost("add")]
+        [HttpPost]
         //[Authorize(Roles = "ShelterAdmin,SuperAdmin")]
         public async Task<IActionResult> CreateAnimal([FromBody] CreateAnimalDto dto)
         {

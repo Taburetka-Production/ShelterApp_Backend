@@ -17,7 +17,7 @@ namespace ShelterApp
             _userManager = userManager;
         }
 
-        [HttpGet("get-info")]
+        [HttpGet("info")]
         public async Task<IActionResult> GetUserInfo()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -48,7 +48,7 @@ namespace ShelterApp
             return Ok(userInfo);
         }
 
-        [HttpPut("update")]
+        [HttpPut("info")]
         public async Task<IActionResult> UpdateUserInfo([FromBody] UpdateUserDto updatedUserDto)
         {
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
