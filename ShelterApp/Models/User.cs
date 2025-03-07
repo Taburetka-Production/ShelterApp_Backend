@@ -9,5 +9,9 @@ namespace ShelterApp
         public string? Name { get; set; }
         public string? Surname { get; set; }
         public int? Age { get; set; }
+
+        public virtual ICollection<Shelter>? Shelters { get; set; }
+
+        public virtual ICollection<Animal>? Animals { get; set; }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using ShelterApp.Data;
 
 namespace ShelterApp
 {
@@ -8,41 +9,50 @@ namespace ShelterApp
     [Route("api/[controller]")]
     public class AnimalsController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        //private readonly ApplicationDbContext _context;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public AnimalsController(ApplicationDbContext context)
-        {
-            _context = context;
+        //public AnimalsController(ApplicationDbContext context)
+        //{
+        //    _context = context;
+        //}
+
+        public AnimalsController(IUnitOfWork unitOfWork) {
+            _unitOfWork = unitOfWork;
         }
 
-        [HttpGet("GetAllAnimals")]
+        [HttpGet]
         public async Task<ActionResult<IEnumerable<Animal>>> GetAnimals()
         {
-            if (_context.Animals == null)
+            if (_unitOfWork.AnimalRepository == null)
             {
                 return NotFound();
             }
 
-            var animals = await _context.Animals
-                .Include(a => a.Shelter)
-                .ThenInclude(s => s.Address)
-                .ToListAsync();
+            var animals = await _unitOfWork.AnimalRepository.GetAllAsync(includeProperties: "Shelter,Shelter.Address");
+
+            //var animals = await _context.Animals
+            //    .Include(a => a.Shelter)
+            //    .ThenInclude(s => s.Address)
+            //    .ToListAsync();
 
             return Ok(animals);
         }
 
-        [HttpGet("GetAnimalById")]
+        [HttpGet("{id}")]
         public async Task<ActionResult<Animal>> GetAnimal(Guid id)
         {
-            if (_context.Animals == null)
+            if (_unitOfWork.AnimalRepository == null)
             {
                 return NotFound();
             }
 
-            var animal = await _context.Animals
-                .Include(a => a.Shelter)
-                .ThenInclude(s => s.Address)
-                .FirstOrDefaultAsync(a => a.Id == id);
+            var animal = await _unitOfWork.AnimalRepository.GetByIdAsync(id, includeProperties: "Shelter,Shelter.Address");
+
+            //var animal = await _context.Animals
+            //    .Include(a => a.Shelter)
+            //    .ThenInclude(s => s.Address)
+            //    .FirstOrDefaultAsync(a => a.Id == id);
 
             if (animal == null)
             {
@@ -56,7 +66,7 @@ namespace ShelterApp
         [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
         public async Task<IActionResult> UpdateAnimal(Guid id, [FromBody] UpdateAnimalDto updatedAnimalDto)
         {
-            var animal = await _context.Animals.FindAsync(id);
+            var animal = await _unitOfWork.AnimalRepository.GetByIdAsync(id);
 
             if (animal == null)
             {
@@ -72,7 +82,7 @@ namespace ShelterApp
 
             try
             {
-                await _context.SaveChangesAsync();
+                await _unitOfWork.SaveAsync();
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -91,11 +101,17 @@ namespace ShelterApp
                 return BadRequest(ModelState);
             }
 
-            var shelterExists = await _context.Shelters.AnyAsync(s => s.Id == dto.ShelterId);
-            if (!shelterExists)
+            var shelter = await _unitOfWork.ShelterRepository.GetByIdAsync(dto.ShelterId);
+            if (shelter == null)
             {
                 return NotFound("Shelter not found.");
             }
+
+            //var shelterExists = await _context.Shelters.AnyAsync(s => s.Id == dto.ShelterId);
+            //if (!shelterExists)
+            //{
+            //    return NotFound("Shelter not found.");
+            //}
 
             var animal = new Animal
             {
@@ -111,13 +127,15 @@ namespace ShelterApp
                 UserLastModified = null
             };
 
-            _context.Animals.Add(animal);
-            await _context.SaveChangesAsync();
+            await _unitOfWork.AnimalRepository.AddAsync(animal);
+            await _unitOfWork.SaveAsync();
 
-            var animalWithShelter = await _context.Animals
-                .Include(a => a.Shelter)
-                .ThenInclude(s => s.Address)
-                .FirstOrDefaultAsync(a => a.Id == animal.Id);
+            var animalWithShelert = await _unitOfWork.AnimalRepository.GetByIdAsync(animal.Id, includeProperties: "Shelter,Shelter.Address");
+
+            //var animalWithShelter = await _context.Animals
+            //    .Include(a => a.Shelter)
+            //    .ThenInclude(s => s.Address)
+            //    .FirstOrDefaultAsync(a => a.Id == animal.Id);
 
             return CreatedAtAction(nameof(GetAnimal), new { id = animal.Id }, animal);
         }

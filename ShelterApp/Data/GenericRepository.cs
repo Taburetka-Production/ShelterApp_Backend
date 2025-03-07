@@ -18,8 +18,8 @@ namespace ShelterApp.Data
         }
 
         public async Task<IEnumerable<TEntity>> GetAllAsync(
-            Expression<Func<TEntity, bool>> filter = null,
-            Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null,
+            Expression<Func<TEntity, bool>>? filter = null,
+            Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>>? orderBy = null,
             string? includeProperties = null)
         {
             IQueryable<TEntity> query = _dbSet;
@@ -46,9 +46,26 @@ namespace ShelterApp.Data
                 return await query.ToListAsync();
             }
         }
-        public async Task<TEntity?> GetByIdAsync(object id)
+        public async Task<TEntity?> GetByIdAsync(object id,
+            Expression<Func<TEntity, bool>>? filter = null,
+            string? includeProperties = null)
         {
-            return await _dbSet.FindAsync(id);
+            IQueryable<TEntity> query = _dbSet;
+
+            if (filter != null)
+            {
+                query = query.Where(filter);
+            }
+
+            if (includeProperties != null)
+            {
+                foreach (var includeProperty in includeProperties.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    query = query.Include(includeProperty);
+                }
+            }
+
+            return await query.FirstOrDefaultAsync(e => EF.Property<object>(e, "Id") == id);
         }
 
         public async Task AddAsync(TEntity entity)

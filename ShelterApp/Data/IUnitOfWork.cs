@@ -14,5 +14,7 @@ namespace ShelterApp.Data
         public void Save();
 
         Task SaveAsync();
+
+        Task<StatisticsView> GetStats();
     }
 }

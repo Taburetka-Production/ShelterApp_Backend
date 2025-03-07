@@ -24,23 +24,20 @@ namespace ShelterApp.Controllers
         [HttpGet]
         public async Task<IActionResult> GetStatistics()
         {
-            var totalShelters = await _unitOfWork.ShelterRepository.CountAsync();
-            var totalAnimals = await _unitOfWork.AnimalRepository.CountAsync();
-            var totalSponsors = await _unitOfWork.UserRepository.CountAsync();
-            var totalRegions = await _unitOfWork.AddressRepository.RegionCount();
+            var stats = await _unitOfWork.GetStats();
             var initiativeDays = (DateTime.UtcNow - _initiativeStartDate).Days;
 
-            var monthlyAdoptions = await _unitOfWork.AdoptionRequestRepository.CountAsync();
-
-            return Ok(new
+            var result = new
             {
-                TotalShelters = totalShelters,
-                TotalAnimals = totalAnimals,
-                TotalSponsors = totalSponsors,
-                InitiativeDays = initiativeDays,
-                TotalRegions = totalRegions,
-                MonthlyAdoptions = monthlyAdoptions
-            });
+                stats.totalshelters,
+                stats.totalanimals,
+                stats.totalusers,
+                stats.totalregions,
+                stats.totaladoptions,
+                initiativeDays
+            };
+
+            return Ok(result);
         }
     }
 }
