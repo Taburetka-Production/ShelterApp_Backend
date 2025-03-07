@@ -18,5 +18,7 @@ namespace ShelterApp
         public Guid ShelterId { get; set; }
         [ForeignKey("ShelterId")]
         public Shelter Shelter { get; set; }
+
+        public virtual ICollection<User>? Users { get; set; }
     }
 }
