@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ShelterApp;
@@ -11,9 +12,11 @@ using ShelterApp;
 namespace ShelterApp.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250306231034_Added many-to-many for User-Shelter and User-Animal")]
+    partial class AddedmanytomanyforUserShelterandUserAnimal
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -34,7 +37,7 @@ namespace ShelterApp.Migrations
 
                     b.HasIndex("UsersId");
 
-                    b.ToTable("AnimalUser", (string)null);
+                    b.ToTable("AnimalUser");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -211,7 +214,7 @@ namespace ShelterApp.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Addresses", (string)null);
+                    b.ToTable("Addresses");
                 });
 
             modelBuilder.Entity("ShelterApp.AdoptionRequest", b =>
@@ -249,7 +252,7 @@ namespace ShelterApp.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AdoptionRequests", (string)null);
+                    b.ToTable("AdoptionRequests");
                 });
 
             modelBuilder.Entity("ShelterApp.Animal", b =>
@@ -295,7 +298,7 @@ namespace ShelterApp.Migrations
 
                     b.HasIndex("ShelterId");
 
-                    b.ToTable("Animals", (string)null);
+                    b.ToTable("Animals");
                 });
 
             modelBuilder.Entity("ShelterApp.Shelter", b =>
@@ -341,29 +344,7 @@ namespace ShelterApp.Migrations
 
                     b.HasIndex("AddressId");
 
-                    b.ToTable("Shelters", (string)null);
-                });
-
-            modelBuilder.Entity("ShelterApp.StatisticsView", b =>
-                {
-                    b.Property<int>("totaladoptions")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("totalanimals")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("totalregions")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("totalshelters")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("totalusers")
-                        .HasColumnType("integer");
-
-                    b.ToTable((string)null);
-
-                    b.ToView("totalstatistics", (string)null);
+                    b.ToTable("Shelters");
                 });
 
             modelBuilder.Entity("ShelterApp.User", b =>
@@ -454,7 +435,7 @@ namespace ShelterApp.Migrations
 
                     b.HasIndex("UsersId");
 
-                    b.ToTable("ShelterUser", (string)null);
+                    b.ToTable("ShelterUser");
                 });
 
             modelBuilder.Entity("AnimalUser", b =>

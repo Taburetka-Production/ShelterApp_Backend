@@ -14,6 +14,8 @@ namespace ShelterApp
         public DbSet<Animal> Animals { get; set; }
         public DbSet<AdoptionRequest> AdoptionRequests { get; set; }
 
+        public DbSet<StatisticsView> Statistics { get; set; }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             if (!optionsBuilder.IsConfigured)
@@ -21,6 +23,15 @@ namespace ShelterApp
                 var connectionString = Environment.GetEnvironmentVariable("DefaultConnection");
                 optionsBuilder.UseNpgsql(connectionString);
             }
+        }
+
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder);
+
+            builder.Entity<StatisticsView>()
+                .HasNoKey()
+                .ToView("totalstatistics");
         }
     }
 }
