@@ -7,7 +7,7 @@ namespace ShelterApp
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
+    [Authorize(Roles = "Superadmin")]
     public class UsersController : ControllerBase
     {
         private readonly UserManager<User> _userManager;
@@ -17,61 +17,69 @@ namespace ShelterApp
             _userManager = userManager;
         }
 
-        [HttpGet("info")]
-        public async Task<IActionResult> GetUserInfo()
+        [HttpGet("all-users")]
+        
+        public async Task<IActionResult> GetAllUsers()
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var allUsers = _userManager.Users.ToList();
+            var usersWithRoles = new List<object>();
 
-            if (string.IsNullOrEmpty(userId))
+            foreach (var user in allUsers)
             {
-                return BadRequest("User identifier not found in claims.");
+                var roles = await _userManager.GetRolesAsync(user);
+
+                // Пропускаємо користувачів з роллю Superadmin
+                if (roles.Contains("Superadmin"))
+                {
+                    continue;
+                }
+
+                usersWithRoles.Add(new
+                {
+                    user.Id,
+                    user.AvatarUrl,
+                    user.Name,
+                    user.Surname,
+                    user.Age,
+                    user.Email,
+                    Roles = roles
+                });
             }
 
-            var user = await _userManager.FindByIdAsync(userId);
-
-            if (user == null)
-            {
-                return NotFound("User not found.");
-            }
-
-            var userInfo = new
-            {
-                user.UserName,
-                user.Name,
-                user.Surname,
-                user.Email,
-                user.AvatarUrl,
-                user.Age,
-                user.PhoneNumber
-            };
-
-            return Ok(userInfo);
+            return Ok(usersWithRoles);
         }
 
-        [HttpPut("info")]
-        public async Task<IActionResult> UpdateUserInfo([FromBody] UpdateUserDto updatedUserDto)
+        [HttpDelete("{id}")]
+        
+        public async Task<IActionResult> DeleteUser(string id)
         {
-            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            if (userId == null) return Unauthorized("User not found");
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null) return NotFound();
 
-            var user = await _userManager.FindByIdAsync(userId);
-            if (user == null) return NotFound("User not found");
-
-            user.UserName = updatedUserDto.UserName ?? user.UserName;
-            user.Name = updatedUserDto.Name ?? user.Name;
-            user.Surname = updatedUserDto.Surname ?? user.Surname;
-            user.Age = updatedUserDto.Age ?? user.Age;
-            user.PhoneNumber = updatedUserDto.PhoneNumber ?? user.PhoneNumber;
-            user.AvatarUrl = updatedUserDto.AvatarUrl ?? user.AvatarUrl;
-
-            var result = await _userManager.UpdateAsync(user);
-            if (!result.Succeeded)
+            var roles = await _userManager.GetRolesAsync(user);
+            if (roles.Contains("Superadmin") || roles.Contains("ShelterAdmin"))
             {
-                return BadRequest(result.Errors);
+                return BadRequest("Cannot delete admin users.");
             }
 
-            return NoContent();
+            var result = await _userManager.DeleteAsync(user);
+            return result.Succeeded ? NoContent() : BadRequest(result.Errors);
+        }
 
+        [HttpPost("grant-admin/{id}")]
+        
+        public async Task<IActionResult> GrantAdmin(string id)
+        {
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null) return NotFound();
+
+            if (await _userManager.IsInRoleAsync(user, "ShelterAdmin"))
+            {
+                return BadRequest("User is already an admin.");
+            }
+
+            var result = await _userManager.AddToRoleAsync(user, "ShelterAdmin");
+            return result.Succeeded ? Ok() : BadRequest(result.Errors);
         }
     }
 }
