@@ -39,6 +39,16 @@ namespace ShelterApp
             builder.Entity<UsersAnimal>()
             .HasKey(us => new { us.AnimalId, us.UserId });
 
+            builder.Entity<Shelter>()
+                .HasOne(s => s.User)
+                .WithOne(u => u.Shelter)
+                .HasForeignKey<Shelter>(s => s.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<Shelter>()
+                .HasIndex(s => s.UserId)
+                .IsUnique();
+
         }
     }
 }

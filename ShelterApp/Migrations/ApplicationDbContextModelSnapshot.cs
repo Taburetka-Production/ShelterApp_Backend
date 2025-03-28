@@ -319,12 +319,19 @@ namespace ShelterApp.Migrations
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<Guid?>("UserLastModified")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
                     b.HasIndex("AddressId");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
 
                     b.ToTable("Shelters");
                 });
@@ -405,9 +412,6 @@ namespace ShelterApp.Migrations
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("ShelterId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Surname")
                         .HasColumnType("text");
 
@@ -426,8 +430,6 @@ namespace ShelterApp.Migrations
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
-
-                    b.HasIndex("ShelterId");
 
                     b.ToTable("AspNetUsers", (string)null);
                 });
@@ -575,16 +577,15 @@ namespace ShelterApp.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("ShelterApp.User", "User")
+                        .WithOne("Shelter")
+                        .HasForeignKey("ShelterApp.Shelter", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Address");
-                });
 
-            modelBuilder.Entity("ShelterApp.User", b =>
-                {
-                    b.HasOne("ShelterApp.Shelter", "Shelter")
-                        .WithMany()
-                        .HasForeignKey("ShelterId");
-
-                    b.Navigation("Shelter");
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ShelterApp.UsersAnimal", b =>
@@ -637,6 +638,8 @@ namespace ShelterApp.Migrations
 
             modelBuilder.Entity("ShelterApp.User", b =>
                 {
+                    b.Navigation("Shelter");
+
                     b.Navigation("UsersAnimals");
 
                     b.Navigation("UsersShelters");

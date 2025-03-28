@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace ShelterApp.Migrations
 {
     /// <inheritdoc />
-    public partial class CreatedUsersAnimalandUsersSheltermodelsaddedShelterIdtouser : Migration
+    public partial class _1to1relationshipbetweenuserandshelter : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -17,11 +17,12 @@ namespace ShelterApp.Migrations
             migrationBuilder.DropTable(
                 name: "ShelterUser");
 
-            migrationBuilder.AddColumn<Guid>(
-                name: "ShelterId",
-                table: "AspNetUsers",
-                type: "uuid",
-                nullable: true);
+            migrationBuilder.AddColumn<string>(
+                name: "UserId",
+                table: "Shelters",
+                type: "text",
+                nullable: false,
+                defaultValue: "");
 
             migrationBuilder.CreateTable(
                 name: "UsersAnimal",
@@ -80,9 +81,10 @@ namespace ShelterApp.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_AspNetUsers_ShelterId",
-                table: "AspNetUsers",
-                column: "ShelterId");
+                name: "IX_Shelters_UserId",
+                table: "Shelters",
+                column: "UserId",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_UsersAnimal_UserId",
@@ -95,19 +97,20 @@ namespace ShelterApp.Migrations
                 column: "UserId");
 
             migrationBuilder.AddForeignKey(
-                name: "FK_AspNetUsers_Shelters_ShelterId",
-                table: "AspNetUsers",
-                column: "ShelterId",
-                principalTable: "Shelters",
-                principalColumn: "Id");
+                name: "FK_Shelters_AspNetUsers_UserId",
+                table: "Shelters",
+                column: "UserId",
+                principalTable: "AspNetUsers",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Restrict);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropForeignKey(
-                name: "FK_AspNetUsers_Shelters_ShelterId",
-                table: "AspNetUsers");
+                name: "FK_Shelters_AspNetUsers_UserId",
+                table: "Shelters");
 
             migrationBuilder.DropTable(
                 name: "UsersAnimal");
@@ -116,12 +119,12 @@ namespace ShelterApp.Migrations
                 name: "UsersShelter");
 
             migrationBuilder.DropIndex(
-                name: "IX_AspNetUsers_ShelterId",
-                table: "AspNetUsers");
+                name: "IX_Shelters_UserId",
+                table: "Shelters");
 
             migrationBuilder.DropColumn(
-                name: "ShelterId",
-                table: "AspNetUsers");
+                name: "UserId",
+                table: "Shelters");
 
             migrationBuilder.CreateTable(
                 name: "AnimalUser",
