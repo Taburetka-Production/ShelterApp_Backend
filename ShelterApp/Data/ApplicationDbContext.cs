@@ -32,6 +32,13 @@ namespace ShelterApp
             builder.Entity<StatisticsView>()
                 .HasNoKey()
                 .ToView("totalstatistics");
+
+            builder.Entity<UsersShelter>()
+            .HasKey(us => new { us.ShelterId, us.UserId });
+            
+            builder.Entity<UsersAnimal>()
+            .HasKey(us => new { us.AnimalId, us.UserId });
+
         }
     }
 }
