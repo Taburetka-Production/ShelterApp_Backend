@@ -48,10 +48,10 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Publish
-      run: dotnet publish -c Release -o ./publish
+      run: dotnet publish -c Release -o .
 
     - name: Zip published output
-      run: zip -r shelterapp.zip ./publish/*
+      run: zip -r ./shelterapp.zip .
 
     - name: Deploy to Elastic Beanstalk
       uses: einaregilsson/beanstalk-deploy@v22
