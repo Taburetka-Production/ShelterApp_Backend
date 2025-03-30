@@ -5,8 +5,6 @@ VisualStudioVersion = 17.12.35521.163
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShelterApp", "ShelterApp\ShelterApp.csproj", "{5D2BDE30-F8DC-4BCC-BD9A-8CAD5DEBEBFE}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShelterApp.Tests", "ShelterApp.Tests\ShelterApp.Tests.csproj", "{A2004CA7-61C4-4537-B01E-CC95A28DA1F0}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
