@@ -48,10 +48,13 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Publish
-      run: dotnet publish -c Release -o .
+      run: dotnet publish -c Release -o ./publish
+
+    - name: Check for runtimeconfig.json
+      run: ls ./publish/*.runtimeconfig.json
 
     - name: Zip published output
-      run: zip -r ./shelterapp.zip .
+      run: zip -r ./shelterapp.zip ./publish/*
 
     - name: Deploy to Elastic Beanstalk
       uses: einaregilsson/beanstalk-deploy@v22
