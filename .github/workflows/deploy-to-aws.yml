@@ -51,7 +51,7 @@ jobs:
       run: dotnet publish -c Release -o ./publish
 
     - name: Deploy to Elastic Beanstalk
-      uses: aws-actions/beanstalk-deploy@v22
+      uses: einaregilsson/beanstalk-deploy@v22
       with:
         application_name: Shelter Application
         environment_name: ShelterApplication-env
