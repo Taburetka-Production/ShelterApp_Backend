@@ -48,10 +48,10 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Publish
-      run: dotnet publish -c Release -o ./publish
+      run: dotnet publish ShelterApp/ShelterApp.csproj -c Release -o ./publish
 
     - name: Zip published output
-      run: cd publish && zip -r ../shelterapp.zip . $$ cd ..
+      run: cd publish && zip -r ../shelterapp.zip . -x "*/.git/*" $$ cd ..
 
     - name: Check for zip
       run: unzip -l shelterapp.zip
