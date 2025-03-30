@@ -50,6 +50,9 @@ jobs:
     - name: Publish
       run: dotnet publish ./ShelterApp/ShelterApp.csproj -c Release -o ./publish
 
+    - name: Zip published output
+      run: zip -r shelterapp.zip ./publish/*
+
     - name: Deploy to Elastic Beanstalk
       uses: einaregilsson/beanstalk-deploy@v22
       with:
@@ -59,3 +62,4 @@ jobs:
         region: eu-north-1
         aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        deployment_package: './shelterapp.zip'
