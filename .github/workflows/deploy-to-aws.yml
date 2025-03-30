@@ -48,7 +48,7 @@ jobs:
         dotnet-version: '8.0.x'
 
     - name: Publish
-      run: dotnet publish ./ShelterApp/ShelterApp.csproj -c Release -o ./publish
+      run: dotnet publish -c Release -o ./publish
 
     - name: Zip published output
       run: zip -r shelterapp.zip ./publish/*
