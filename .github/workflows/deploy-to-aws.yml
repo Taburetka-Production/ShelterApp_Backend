@@ -50,11 +50,11 @@ jobs:
     - name: Publish
       run: dotnet publish -c Release -o ./publish
 
-    - name: Check for runtimeconfig.json
-      run: unzip -l shelterapp.zip
-
     - name: Zip published output
       run: cd publish && zip -r ../shelterapp.zip . $$ cd ..
+
+    - name: Check for runtimeconfig.json
+      run: unzip -l shelterapp.zip
 
     - name: Deploy to Elastic Beanstalk
       uses: einaregilsson/beanstalk-deploy@v22
