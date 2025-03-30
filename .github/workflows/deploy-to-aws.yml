@@ -53,7 +53,7 @@ jobs:
     - name: Zip published output
       run: cd publish && zip -r ../shelterapp.zip . $$ cd ..
 
-    - name: Check for runtimeconfig.json
+    - name: Check for zip
       run: unzip -l shelterapp.zip
 
     - name: Deploy to Elastic Beanstalk
