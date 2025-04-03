@@ -5,6 +5,7 @@ namespace ShelterApp
 {
     public class AnimalPhoto : BaseEntity
     {
+        [Required]
         public string PhotoURL { get; set; }
         public Guid AnimalId { get; set; }
         [ForeignKey("AnimalId")]

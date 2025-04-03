@@ -7,8 +7,11 @@ namespace ShelterApp
     public class User : IdentityUser
     {
         public string? AvatarUrl { get; set; }
+        [Required]
         public string? Name { get; set; }
+        [Required]
         public string? Surname { get; set; }
+        [Required]
         public int? Age { get; set; }
 
         public Shelter? Shelter { get; set; }

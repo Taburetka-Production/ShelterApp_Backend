@@ -9,15 +9,20 @@ namespace ShelterApp
         public string Name { get; set; }
         [Required]
         public string Species { get; set; }
-        public string? Breed { get; set; }
+        [Required]
+        public string Breed { get; set; }
+        [Required]
         public int? Age { get; set; }
         [Required]
         public string Status { get; set; }
-        public string Sex { get; set; }       // Додано
-        public string Size { get; set; }      // Додано
-        public bool Sterilized { get; set; }  // Додано
-        public string HealthCondition { get; set; } // Додано
-        public string Description { get; set; }     // Додано
+        [Required]
+        public string Sex { get; set; }
+        [Required]
+        public string Size { get; set; }
+        [Required]
+        public bool Sterilized { get; set; }  
+        public string? HealthCondition { get; set; } 
+        public string Description { get; set; }    
         [Required]
         public Guid ShelterId { get; set; }
         [ForeignKey("ShelterId")]
