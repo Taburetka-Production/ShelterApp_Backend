@@ -78,7 +78,7 @@ namespace ShelterApp
             animal.Breed = updatedAnimalDto.Breed ?? animal.Breed;
             animal.Age = updatedAnimalDto.Age ?? animal.Age;
             animal.Status = updatedAnimalDto.Status ?? animal.Status;
-            animal.PhotoURL = updatedAnimalDto.PhotoURL ?? animal.PhotoURL;
+            
 
             try
             {
@@ -121,7 +121,6 @@ namespace ShelterApp
                 Breed = dto.Breed,
                 Age = dto.Age,
                 Status = dto.Status,
-                PhotoURL = dto.PhotoURL,
                 ShelterId = dto.ShelterId,
                 CreatedAtUtc = DateTime.UtcNow,
                 UserLastModified = null
