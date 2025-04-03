@@ -12,8 +12,13 @@ namespace ShelterApp
         public string District { get; set; }
         [Required]
         public string City { get; set; }
-        public string? Street { get; set; }
-        public string? Apartments { get; set; }
-        public string? Coordinates { get; set; }
+        [Required]
+        public string Street { get; set; }
+        [Required]
+        public string Apartments { get; set; }
+        [Required]
+        public double lng { get; set; }
+        [Required]
+        public double lat { get; set; }
     }
 }

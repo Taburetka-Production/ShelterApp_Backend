@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ShelterApp;
@@ -11,9 +12,11 @@ using ShelterApp;
 namespace ShelterApp.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250403200042_AddAnimalFieldsAndPhotos")]
+    partial class AddAnimalFieldsAndPhotos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -161,11 +164,13 @@ namespace ShelterApp.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Apartments")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("City")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Coordinates")
                         .HasColumnType("text");
 
                     b.Property<string>("Country")
@@ -184,7 +189,6 @@ namespace ShelterApp.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Street")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
@@ -192,12 +196,6 @@ namespace ShelterApp.Migrations
 
                     b.Property<Guid?>("UserLastModified")
                         .HasColumnType("uuid");
-
-                    b.Property<double>("lat")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("lng")
-                        .HasColumnType("double precision");
 
                     b.HasKey("Id");
 
@@ -249,11 +247,9 @@ namespace ShelterApp.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<int?>("Age")
-                        .IsRequired()
                         .HasColumnType("integer");
 
                     b.Property<string>("Breed")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAtUtc")
@@ -264,6 +260,7 @@ namespace ShelterApp.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("HealthCondition")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Name")
@@ -316,10 +313,6 @@ namespace ShelterApp.Migrations
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("PhotoURL")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -440,7 +433,6 @@ namespace ShelterApp.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("Age")
-                        .IsRequired()
                         .HasColumnType("integer");
 
                     b.Property<string>("AvatarUrl")
@@ -464,7 +456,6 @@ namespace ShelterApp.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("NormalizedEmail")
@@ -488,7 +479,6 @@ namespace ShelterApp.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Surname")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("TwoFactorEnabled")

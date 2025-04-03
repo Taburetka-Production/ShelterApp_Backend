@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using ShelterApp;
@@ -11,9 +12,11 @@ using ShelterApp;
 namespace ShelterApp.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250328124925_1-to-1 relationship between user and shelter")]
+    partial class _1to1relationshipbetweenuserandshelter
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -161,11 +164,13 @@ namespace ShelterApp.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("Apartments")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("City")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Coordinates")
                         .HasColumnType("text");
 
                     b.Property<string>("Country")
@@ -184,7 +189,6 @@ namespace ShelterApp.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Street")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
@@ -192,12 +196,6 @@ namespace ShelterApp.Migrations
 
                     b.Property<Guid?>("UserLastModified")
                         .HasColumnType("uuid");
-
-                    b.Property<double>("lat")
-                        .HasColumnType("double precision");
-
-                    b.Property<double>("lng")
-                        .HasColumnType("double precision");
 
                     b.HasKey("Id");
 
@@ -249,37 +247,23 @@ namespace ShelterApp.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<int?>("Age")
-                        .IsRequired()
                         .HasColumnType("integer");
 
                     b.Property<string>("Breed")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("HealthCondition")
-                        .HasColumnType("text");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Sex")
-                        .IsRequired()
+                    b.Property<string>("PhotoURL")
                         .HasColumnType("text");
 
                     b.Property<Guid>("ShelterId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("Size")
-                        .IsRequired()
-                        .HasColumnType("text");
 
                     b.Property<string>("Species")
                         .IsRequired()
@@ -288,9 +272,6 @@ namespace ShelterApp.Migrations
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");
-
-                    b.Property<bool>("Sterilized")
-                        .HasColumnType("boolean");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -303,35 +284,6 @@ namespace ShelterApp.Migrations
                     b.HasIndex("ShelterId");
 
                     b.ToTable("Animals");
-                });
-
-            modelBuilder.Entity("ShelterApp.AnimalPhoto", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("AnimalId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("PhotoURL")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime?>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("UserLastModified")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AnimalId");
-
-                    b.ToTable("AnimalPhotos");
                 });
 
             modelBuilder.Entity("ShelterApp.Shelter", b =>
@@ -387,28 +339,6 @@ namespace ShelterApp.Migrations
                     b.ToTable("Shelters");
                 });
 
-            modelBuilder.Entity("ShelterApp.ShelterFeedback", b =>
-                {
-                    b.Property<string>("UserId")
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("ShelterId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Comment")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<double>("Rating")
-                        .HasColumnType("double precision");
-
-                    b.HasKey("UserId", "ShelterId");
-
-                    b.HasIndex("ShelterId");
-
-                    b.ToTable("ShelterFeedbacks");
-                });
-
             modelBuilder.Entity("ShelterApp.StatisticsView", b =>
                 {
                     b.Property<int>("totaladoptions")
@@ -440,7 +370,6 @@ namespace ShelterApp.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("Age")
-                        .IsRequired()
                         .HasColumnType("integer");
 
                     b.Property<string>("AvatarUrl")
@@ -464,7 +393,6 @@ namespace ShelterApp.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Name")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("NormalizedEmail")
@@ -488,7 +416,6 @@ namespace ShelterApp.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("Surname")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("TwoFactorEnabled")
@@ -534,7 +461,7 @@ namespace ShelterApp.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("UsersAnimals");
+                    b.ToTable("UsersAnimal");
                 });
 
             modelBuilder.Entity("ShelterApp.UsersShelter", b =>
@@ -561,7 +488,7 @@ namespace ShelterApp.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("UsersShelters");
+                    b.ToTable("UsersShelter");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -645,17 +572,6 @@ namespace ShelterApp.Migrations
                     b.Navigation("Shelter");
                 });
 
-            modelBuilder.Entity("ShelterApp.AnimalPhoto", b =>
-                {
-                    b.HasOne("ShelterApp.Animal", "Animal")
-                        .WithMany("Photos")
-                        .HasForeignKey("AnimalId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Animal");
-                });
-
             modelBuilder.Entity("ShelterApp.Shelter", b =>
                 {
                     b.HasOne("ShelterApp.Address", "Address")
@@ -671,25 +587,6 @@ namespace ShelterApp.Migrations
                         .IsRequired();
 
                     b.Navigation("Address");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("ShelterApp.ShelterFeedback", b =>
-                {
-                    b.HasOne("ShelterApp.Shelter", "Shelter")
-                        .WithMany()
-                        .HasForeignKey("ShelterId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("ShelterApp.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Shelter");
 
                     b.Navigation("User");
                 });
@@ -734,8 +631,6 @@ namespace ShelterApp.Migrations
 
             modelBuilder.Entity("ShelterApp.Animal", b =>
                 {
-                    b.Navigation("Photos");
-
                     b.Navigation("UsersAnimal");
                 });
 

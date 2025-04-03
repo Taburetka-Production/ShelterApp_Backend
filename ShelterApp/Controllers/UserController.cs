@@ -57,7 +57,7 @@ namespace ShelterApp
             if (user == null) return NotFound();
 
             var roles = await _userManager.GetRolesAsync(user);
-            if (roles.Contains("Superadmin") || roles.Contains("ShelterAdmin"))
+            if (roles.Contains("Superadmin"))
             {
                 return BadRequest("Cannot delete admin users.");
             }
@@ -79,6 +79,21 @@ namespace ShelterApp
             }
 
             var result = await _userManager.AddToRoleAsync(user, "ShelterAdmin");
+            return result.Succeeded ? Ok() : BadRequest(result.Errors);
+        }
+
+        [HttpPost("revoke-admin/{id}")]
+        public async Task<IActionResult> RevokeAdmin(string id)
+        {
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null) return NotFound("User not found");
+
+            if (!await _userManager.IsInRoleAsync(user, "ShelterAdmin"))
+            {
+                return BadRequest("User is not an admin");
+            }
+
+            var result = await _userManager.RemoveFromRoleAsync(user, "ShelterAdmin");
             return result.Succeeded ? Ok() : BadRequest(result.Errors);
         }
     }

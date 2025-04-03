@@ -21,7 +21,11 @@ namespace ShelterApp
         public Guid AddressId { get; set; }
         [ForeignKey("AddressId")]
         public Address Address { get; set; }
+        [Required]
+        public string UserId { get; set; }
+        [ForeignKey("UserId")]
+        public User User { get; set; }
 
-        public virtual ICollection<User>? Users { get; set; }
+        public virtual ICollection<UsersShelter>? UsersShelters { get; set; }
     }
 }
