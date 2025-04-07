@@ -10,6 +10,10 @@ namespace ShelterApp.Data
         public IRepository<Shelter> ShelterRepository { get; }
         public AddressRepository AddressRepository { get; }
         public IRepository<AdoptionRequest> AdoptionRequestRepository { get; }
+        public IRepository<UsersAnimal> UsersAnimalRepository { get; }
+        public IRepository<UsersShelter> UsersShelterRepository { get; }
+        public IRepository<ShelterFeedback> ShelterFeedbackRepository { get; }
+        public IRepository<AnimalPhoto> AnimalPhotoRepository { get; }
 
         public void Save();
 
