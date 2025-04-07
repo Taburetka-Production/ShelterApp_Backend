@@ -112,5 +112,44 @@ namespace ShelterApp.Data
         {
             await _context.SaveChangesAsync();
         }
+
+        public async Task<TEntity?> GetFirstOrDefaultAsync(
+            Expression<Func<TEntity, bool>>? filter = null,
+            string? includeProperties = null,
+            bool tracked = true)
+        {
+            IQueryable<TEntity> query = _dbSet;
+
+            if (!tracked)
+            {
+                query = query.AsNoTracking();
+            }
+
+            if (filter != null)
+            {
+                query = query.Where(filter);
+            }
+
+            if (includeProperties != null)
+            {
+                foreach (var includeProperty in includeProperties.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    query = query.Include(includeProperty);
+                }
+            }
+
+            return await query.FirstOrDefaultAsync();
+        }
+
+        public async Task<bool> ExistsAsync(Expression<Func<TEntity, bool>>? filter = null)
+        {
+            IQueryable<TEntity> query = _dbSet;
+
+            if (filter != null)
+            {
+                return await query.AnyAsync(filter);
+            }
+            return await query.AnyAsync();
+        }
     }
 }
