@@ -49,7 +49,10 @@ namespace ShelterApp
         public async Task<ActionResult> GetShelterById(Guid id)
         {
             var shelter = await _unitOfWork.ShelterRepository.GetByIdAsync(id, includeProperties: "Address");
-
+            if (shelter == null)
+            {
+                return NotFound("Shelter not found.");
+            }
             return Ok(shelter);
         }
 
@@ -197,5 +200,55 @@ namespace ShelterApp
 
         //    return Ok(shelter);
         //}
+
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
+        public async Task<IActionResult> DeleteShelter(Guid id)
+        {
+
+            // Отримання притулку з репозиторію
+            var shelter = await _unitOfWork.ShelterRepository.GetByIdAsync(id, includeProperties: "Address");
+            if (shelter == null)
+            {
+                return NotFound("Shelter not found.");
+            }
+            if (shelter.Address != null)
+            {
+                _unitOfWork.AddressRepository.Remove(shelter.Address);
+            }
+            // Видалення UsersShelters (зв'язки користувачів з притулком)
+            var usersShelters = await _unitOfWork.UsersShelterRepository.GetAllAsync(us => us.ShelterId == id);
+            _unitOfWork.UsersShelterRepository.RemoveRange(usersShelters);
+
+            // Видалення відгуків (ShelterFeedback)
+            var shelterFeedbacks = await _unitOfWork.ShelterFeedbackRepository.GetAllAsync(sf => sf.ShelterId == id);
+            _unitOfWork.ShelterFeedbackRepository.RemoveRange(shelterFeedbacks);
+
+            // Видалення тварин (Animal) та їхніх залежностей
+            var animals = await _unitOfWork.AnimalRepository.GetAllAsync(a => a.ShelterId == id);
+            foreach (var animal in animals)
+            {
+                // Видалення фотографій тварини (AnimalPhoto)
+                var animalPhotos = await _unitOfWork.AnimalPhotoRepository.GetAllAsync(ap => ap.AnimalId == animal.Id);
+                _unitOfWork.AnimalPhotoRepository.RemoveRange(animalPhotos);
+
+                // Видалення зв'язків UsersAnimal
+                var usersAnimals = await _unitOfWork.UsersAnimalRepository.GetAllAsync(ua => ua.AnimalId == animal.Id);
+                _unitOfWork.UsersAnimalRepository.RemoveRange(usersAnimals);
+
+                // Видалення заявок на усиновлення (AdoptionRequest)
+                var adoptionRequests = await _unitOfWork.AdoptionRequestRepository.GetAllAsync(ar => ar.AnimalId == animal.Id);
+                _unitOfWork.AdoptionRequestRepository.RemoveRange(adoptionRequests);
+            }
+            _unitOfWork.AnimalRepository.RemoveRange(animals); // Видалити всіх тварин притулку
+
+            // Видалення самого притулку
+            _unitOfWork.ShelterRepository.Remove(shelter);
+
+            // Збереження змін
+            await _unitOfWork.SaveAsync();
+
+            return NoContent();
+        }
     }
 }
