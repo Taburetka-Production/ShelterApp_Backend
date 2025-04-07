@@ -80,26 +80,31 @@ namespace ShelterApp
             var currentAdmin = await _userManager.FindByIdAsync(id);
             if (currentAdmin == null)
             {
-                return NotFound("Поточний адмін не знайдений.");
+                return NotFound("ShelterAdmin not found.");
             }
 
             // 2. Перевірити, чи є він адміном
             if (!await _userManager.IsInRoleAsync(currentAdmin, "ShelterAdmin"))
             {
-                return BadRequest("Користувач не є адміном.");
+                return BadRequest("The admin isn't ShelterAdmin.");
             }
 
             // 3. Знайти нового адміна за email
             var newAdmin = await _userManager.FindByEmailAsync(transferDto.NewAdminEmail);
             if (newAdmin == null)
             {
-                return NotFound("Новий адмін не знайдений.");
+                return NotFound("User not found.");
             }
 
             // 4. Перевірити, чи новий адмін вже не має цієї ролі
             if (await _userManager.IsInRoleAsync(newAdmin, "ShelterAdmin"))
             {
-                return BadRequest("Новий користувач вже є адміном.");
+                return BadRequest("User is already admin.");
+            }
+
+            if (await _userManager.IsInRoleAsync(newAdmin, "SuperAdmin"))
+            {
+                return BadRequest("User is SuperAdmin.");
             }
 
             // 5. Видалити роль у поточного адміна
@@ -107,6 +112,12 @@ namespace ShelterApp
             if (!removeResult.Succeeded)
             {
                 return BadRequest(removeResult.Errors);
+            }
+
+            var addUser = await _userManager.AddToRoleAsync(currentAdmin, "User");
+            if (!addUser.Succeeded)
+            {
+                return BadRequest(addUser.Errors);
             }
 
             // 6. Додати роль новому адміну
@@ -119,7 +130,7 @@ namespace ShelterApp
             // 7. Зберегти зміни та закрити транзакцію
             await _unitOfWork.SaveAsync();
 
-            return Ok("Роль успішно передана.");
+            return Ok("Role successfully transmitted.");
         }
 
 
@@ -134,7 +145,7 @@ namespace ShelterApp
             var roles = await _userManager.GetRolesAsync(user);
             if (roles.Contains("Superadmin"))
             {
-                return BadRequest("Цей користувач є адміністратором. Використовуйте /delete-admin.");
+                return BadRequest("User is SuperAdmin.");
             }
             else 
             {
@@ -162,10 +173,15 @@ namespace ShelterApp
                 else
                 {
                     // Знаходимо притулок, який належить адміністратору
-                    var shelter = await _unitOfWork.ShelterRepository.GetAllAsync(s => s.UserId == id);
+                    var shelter = await _unitOfWork.ShelterRepository.GetAllAsync(s => s.UserId == id, includeProperties: "Address");
                     if (shelter != null && shelter.Any())
                     {
                         var shelterToDelete = shelter.First();
+
+                        if (shelterToDelete.Address != null)
+                        {
+                            _unitOfWork.AddressRepository.Remove(shelterToDelete.Address);
+                        }
 
                         // Видаляємо притулок і всі його залежності (як у попередньому коді)
                         var animals = await _unitOfWork.AnimalRepository.GetAllAsync(a => a.ShelterId == shelterToDelete.Id);

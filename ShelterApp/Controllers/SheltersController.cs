@@ -207,12 +207,15 @@ namespace ShelterApp
         {
 
             // Отримання притулку з репозиторію
-            var shelter = await _unitOfWork.ShelterRepository.GetByIdAsync(id, includeProperties: "Address,UsersShelters");
+            var shelter = await _unitOfWork.ShelterRepository.GetByIdAsync(id, includeProperties: "Address");
             if (shelter == null)
             {
                 return NotFound("Shelter not found.");
             }
-
+            if (shelter.Address != null)
+            {
+                _unitOfWork.AddressRepository.Remove(shelter.Address);
+            }
             // Видалення UsersShelters (зв'язки користувачів з притулком)
             var usersShelters = await _unitOfWork.UsersShelterRepository.GetAllAsync(us => us.ShelterId == id);
             _unitOfWork.UsersShelterRepository.RemoveRange(usersShelters);
