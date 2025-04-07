@@ -37,5 +37,12 @@ namespace ShelterApp.Data
         Task SaveChangesAsync();
 
         Task<int> CountAsync();
+
+        Task<T?> GetFirstOrDefaultAsync(
+            Expression<Func<T, bool>>? filter = null,
+            string? includeProperties = null,
+            bool tracked = true);
+
+        Task<bool> ExistsAsync(Expression<Func<T, bool>>? filter = null);
     }
 }
