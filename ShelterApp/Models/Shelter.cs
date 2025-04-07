@@ -25,6 +25,8 @@ namespace ShelterApp
         public string UserId { get; set; }
         [ForeignKey("UserId")]
         public User User { get; set; }
+        [Required]
+        public string Slug { get; set; } = String.Empty;
 
         public virtual ICollection<UsersShelter>? UsersShelters { get; set; }
     }
