@@ -139,5 +139,35 @@ namespace ShelterApp
 
             return NoContent();
         }
+
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
+        public async Task<IActionResult> DeleteAnimal(Guid id)
+        {
+            // Отримання тварини з репозиторію (включаючи залежні сутності, якщо потрібно)
+            var animal = await _unitOfWork.AnimalRepository.GetByIdAsync(id);
+            if (animal == null)
+            {
+                return NotFound("Animal not found.");
+            }
+
+            // Видалення пов'язаних сутностей
+            var animalPhotos = await _unitOfWork.AnimalPhotoRepository.GetAllAsync(ap => ap.AnimalId == id);
+            _unitOfWork.AnimalPhotoRepository.RemoveRange(animalPhotos);
+
+            var adoptionRequests = await _unitOfWork.AdoptionRequestRepository.GetAllAsync(ar => ar.AnimalId == id);
+            _unitOfWork.AdoptionRequestRepository.RemoveRange(adoptionRequests);
+
+            var usersAnimals = await _unitOfWork.UsersAnimalRepository.GetAllAsync(ua => ua.AnimalId == id);
+            _unitOfWork.UsersAnimalRepository.RemoveRange(usersAnimals);
+
+            // Видалення самої тварини
+            _unitOfWork.AnimalRepository.Remove(animal);
+
+            // Збереження змін
+            await _unitOfWork.SaveAsync();
+
+            return NoContent();
+        }
     }
 }

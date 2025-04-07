@@ -22,18 +22,32 @@
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
+            // Перевірка унікальності Email
+            var existingUser = await _userManager.FindByEmailAsync(registrationDto.Email);
+            if (existingUser != null)
+                return BadRequest("Email вже зареєстрований.");
+
+            // Створення користувача з усіма обов’язковими полями
             var user = new User
             {
-                UserName = Guid.NewGuid().ToString(),
-                Email = registrationDto.Email
+                UserName = registrationDto.Email, // Використовуємо Email як UserName
+                Email = registrationDto.Email,
+                Name = registrationDto.Name,
+                Surname = registrationDto.Surname,
+                Age = registrationDto.Age,
+                AvatarUrl = registrationDto.AvatarUrl,
+                PhoneNumber = registrationDto.PhoneNumber
             };
 
+            // Створення користувача з паролем
             var result = await _userManager.CreateAsync(user, registrationDto.Password);
 
             if (!result.Succeeded)
                 return BadRequest(result.Errors);
 
-            return Ok(new { message = "User registered successfully" });
+            await _userManager.AddToRoleAsync(user, "User");
+
+            return Ok(new { message = "Користувача успішно зареєстровано!" });
         }
 
         [HttpGet("info")]
