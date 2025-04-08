@@ -30,7 +30,7 @@
             // Створення користувача з усіма обов’язковими полями
             var user = new User
             {
-                UserName = registrationDto.Email, // Використовуємо Email як UserName
+                UserName = registrationDto.UserName, // Використовуємо Email як UserName
                 Email = registrationDto.Email,
                 Name = registrationDto.Name,
                 Surname = registrationDto.Surname,
