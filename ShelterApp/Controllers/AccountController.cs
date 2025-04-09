@@ -11,8 +11,6 @@
     public class AccountController : ControllerBase
     {
         private readonly UserManager<User> _userManager;
-        private const string DefaultUserRole = "User";
-
         public AccountController(UserManager<User> userManager)
         {
             _userManager = userManager;
