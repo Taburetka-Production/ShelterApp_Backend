@@ -51,7 +51,7 @@ jobs:
       run: dotnet publish ShelterApp/ShelterApp.csproj -c Release -o ./publish
 
     - name: Run migrations
-      run: dotnet ef database update --project ShelterApp/ShelterApp.csproj
+      run: dotnet tool install --global dotnet-ef --version 8.0 && dotnet ef database update --project ShelterApp/ShelterApp.csproj
 
     - name: Zip published output
       run: cd publish && zip -r ../shelterapp.zip . -x "*/.git/*" $$ cd ..
