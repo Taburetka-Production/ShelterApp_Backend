@@ -3,18 +3,18 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace ShelterApp.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("/")]
     [ApiController]
     public class HomeController : ControllerBase
     {
-        // GET: api/home
+        // GET: /
         [HttpGet]
         public IActionResult Get()
         {
             return Ok(new { Message = "Welcome to the ASP.NET Core Web API!", Timestamp = DateTime.UtcNow });
         }
 
-        // GET: api/home/info
+        // GET: /info
         [HttpGet("info")]
         public IActionResult GetInfo()
         {
@@ -27,7 +27,7 @@ namespace ShelterApp.Controllers
             });
         }
 
-        // POST: api/home
+        // POST: /
         [HttpPost]
         public IActionResult Post([FromBody] string message)
         {
