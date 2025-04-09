@@ -2,6 +2,7 @@
 {
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Mvc;
+    using ShelterApp.DTOs;
     using System.Security.Claims;
     using System.Threading.Tasks;
 
@@ -10,6 +11,7 @@
     public class AccountController : ControllerBase
     {
         private readonly UserManager<User> _userManager;
+        private const string DefaultUserRole = "User";
 
         public AccountController(UserManager<User> userManager)
         {
@@ -61,6 +63,7 @@
             }
 
             var user = await _userManager.FindByIdAsync(userId);
+            var roles = await _userManager.GetRolesAsync(user);
 
             if (user == null)
             {
@@ -75,7 +78,8 @@
                 user.Email,
                 user.AvatarUrl,
                 user.Age,
-                user.PhoneNumber
+                user.PhoneNumber,
+                Roles = roles
             };
 
             return Ok(userInfo);

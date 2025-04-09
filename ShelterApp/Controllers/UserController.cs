@@ -114,12 +114,6 @@ namespace ShelterApp
                 return BadRequest(removeResult.Errors);
             }
 
-            var addUser = await _userManager.AddToRoleAsync(currentAdmin, "User");
-            if (!addUser.Succeeded)
-            {
-                return BadRequest(addUser.Errors);
-            }
-
             // 6. Додати роль новому адміну
             var addResult = await _userManager.AddToRoleAsync(newAdmin, "ShelterAdmin");
             if (!addResult.Succeeded)
@@ -216,7 +210,5 @@ namespace ShelterApp
             }
             
         }
-
-        
     }
 }
