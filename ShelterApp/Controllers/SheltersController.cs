@@ -2,6 +2,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ShelterApp.Data;
+using ShelterApp.DTOs;
+using System.Security.Claims;
 
 namespace ShelterApp
 {
@@ -57,21 +59,43 @@ namespace ShelterApp
         }
 
         [HttpPost]
-        [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
-        public async Task<ActionResult<Shelter>> CreateShelter([FromBody] Shelter shelter)
+        [Authorize(Roles = "ShelterAdmin")]
+        public async Task<ActionResult<Shelter>> CreateShelter([FromBody] CreateShelterDto dto)
         {
             if (_unitOfWork.ShelterRepository == null)
             {
                 return Problem("Entity set 'ApplicationDbContext.Shelters' is null.");
             }
 
-            // Валідація вхідних даних
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            string baseSlug = UrlSlugger.GenerateSlug(shelter.Name);
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("Користувач не автентифікований.");
+            }
+
+            // Створення адреси з даних DTO
+            var address = new Address
+            {
+                Country = dto.Country,
+                Region = dto.Region,
+                District = dto.District,
+                City = dto.City,
+                Street = dto.Street,
+                Apartments = dto.Apartments,
+                lng = dto.lng,
+                lat = dto.lat
+            };
+
+            await _unitOfWork.AddressRepository.AddAsync(address);
+            await _unitOfWork.SaveAsync(); // Зберегти адресу для отримання ID
+
+            // Генерація унікального slug
+            string baseSlug = UrlSlugger.GenerateSlug(dto.Name);
             string finalSlug = baseSlug;
             int counter = 1;
 
@@ -80,21 +104,36 @@ namespace ShelterApp
                 finalSlug = $"{baseSlug}-{counter}";
                 counter++;
             }
-            shelter.Slug = finalSlug;
+
+            // Створення притулку
+            var shelter = new Shelter
+            {
+                Name = dto.Name,
+                Description = dto.Description,
+                ImageUrl = dto.ImageUrl,
+                Rating = 0.0,
+                ReviewsCount = 0,
+                AnimalsCount = 0,
+                AddressId = address.Id, // Використовуємо ID створеної адреси
+                UserId = userId,
+                Slug = finalSlug
+            };
 
             try
             {
-                // Додаємо шелтер до бази даних
                 await _unitOfWork.ShelterRepository.AddAsync(shelter);
                 await _unitOfWork.SaveAsync();
 
-                // Повертаємо створений ресурс з його ID
-                return CreatedAtAction(nameof(GetShelters), new { id = shelter.Id }, shelter);
+                // Отримання повної інформації з адресою для відповіді
+                var createdShelter = await _unitOfWork.ShelterRepository.GetByIdAsync(shelter.Id, includeProperties: "Address");
+                return CreatedAtAction(nameof(GetShelterById), new { id = createdShelter.Id }, createdShelter);
             }
             catch (Exception ex)
             {
-                // Логування або обробка помилки
-                return StatusCode(500, $"Виникла помилка: {ex.Message}");
+                // Відкат адреси у разі помилки
+                _unitOfWork.AddressRepository.Remove(address);
+                await _unitOfWork.SaveAsync();
+                return StatusCode(500, $"Помилка: {ex.Message}");
             }
         }
 

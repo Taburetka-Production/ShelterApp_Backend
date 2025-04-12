@@ -63,7 +63,7 @@ namespace ShelterApp
         }
 
         [HttpPost("AddAnimal")]
-        [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
+        [Authorize(Roles = "ShelterAdmin")]
         public async Task<IActionResult> CreateAnimal([FromBody] CreateAnimalDto dto)
         {
             if (!ModelState.IsValid)
@@ -81,7 +81,7 @@ namespace ShelterApp
                 Species = dto.Species,
                 Breed = dto.Breed,
                 Age = dto.Age,
-                Status = dto.Status,
+                Status = "Free",
                 ShelterId = dto.ShelterId,
                 // Нові поля
                 Sex = dto.Sex,
@@ -121,7 +121,6 @@ namespace ShelterApp
             animal.Species = dto.Species ?? animal.Species;
             animal.Breed = dto.Breed ?? animal.Breed;
             animal.Age = dto.Age ?? animal.Age;
-            animal.Status = dto.Status ?? animal.Status;
             animal.Sex = dto.Sex ?? animal.Sex;
             animal.Size = dto.Size ?? animal.Size;
             animal.Sterilized = dto.Sterilized ?? animal.Sterilized;

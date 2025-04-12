@@ -98,6 +98,7 @@
             user.Age = updatedUserDto.Age ?? user.Age;
             user.PhoneNumber = updatedUserDto.PhoneNumber ?? user.PhoneNumber;
             user.AvatarUrl = updatedUserDto.AvatarUrl ?? user.AvatarUrl;
+            user.Email = updatedUserDto.Email ?? user.Email;
 
             var result = await _userManager.UpdateAsync(user);
             if (!result.Succeeded)
