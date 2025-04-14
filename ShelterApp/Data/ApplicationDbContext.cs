@@ -46,13 +46,13 @@ namespace ShelterApp
 
             builder.Entity<ShelterFeedback>()
                 .HasOne(sf => sf.User)
-                .WithMany()
+                .WithMany(u => u.UserFeedbacks)
                 .HasForeignKey(sf => sf.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.Entity<ShelterFeedback>()
                 .HasOne(sf => sf.Shelter)
-                .WithMany()
+                .WithMany(s => s.ShelterFeedbacks)
                 .HasForeignKey(sf => sf.ShelterId)
                 .OnDelete(DeleteBehavior.Restrict);
 

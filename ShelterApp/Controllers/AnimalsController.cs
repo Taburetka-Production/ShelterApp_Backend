@@ -83,7 +83,6 @@ namespace ShelterApp
                 Age = dto.Age,
                 Status = "Free",
                 ShelterId = dto.ShelterId,
-                // Нові поля
                 Sex = dto.Sex,
                 Size = dto.Size,
                 Sterilized = dto.Sterilized,

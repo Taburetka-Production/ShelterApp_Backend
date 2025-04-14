@@ -16,8 +16,11 @@ namespace ShelterApp
 
         public Shelter? Shelter { get; set; }
 
-        public virtual ICollection<UsersShelter>? UsersShelters { get; set; }
+        public AdoptionRequest? AdoptionRequest { get; set; }
 
-        public virtual ICollection<UsersAnimal>? UsersAnimals { get; set; }
+        public virtual ICollection<UsersShelter> UsersShelters { get; set; } = new List<UsersShelter>();
+        public virtual ICollection<ShelterFeedback> UserFeedbacks { get; set; } = new List<ShelterFeedback>();
+
+        public virtual ICollection<UsersAnimal> UsersAnimals { get; set; } = new List<UsersAnimal>();
     }
 }

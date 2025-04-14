@@ -28,6 +28,8 @@ namespace ShelterApp
         [Required]
         public string Slug { get; set; } = String.Empty;
 
-        public virtual ICollection<UsersShelter>? UsersShelters { get; set; }
+        public virtual ICollection<Animal> Animals { get; set; } = new List<Animal>();
+        public virtual ICollection<UsersShelter> UsersShelters { get; set; } = new List<UsersShelter>();
+        public virtual ICollection<ShelterFeedback> ShelterFeedbacks { get; set; } = new List<ShelterFeedback>();
     }
 }
