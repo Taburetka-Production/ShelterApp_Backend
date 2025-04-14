@@ -45,7 +45,7 @@ namespace ShelterApp
                 return BadRequest("Slug cannot be empty.");
             }
 
-            string includeProps = "Address,Animals.Photos";
+            string includeProps = "Address,Animals.Photos,ShelterFeedbacks,ShelterFeedbacks.User";
 
             var shelterEntity = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(
                 filter: s => s.Slug == slug.ToLowerInvariant(),
@@ -87,7 +87,20 @@ namespace ShelterApp
                     Status = a.Status,
                     Slug = a.Slug,
                     PrimaryPhotoUrl = a.Photos?.FirstOrDefault()?.PhotoURL
-                }).ToList() ?? new List<AnimalSummaryDto>()
+                }).ToList() ?? new List<AnimalSummaryDto>(),
+                Feedbacks = shelterEntity.ShelterFeedbacks?.Select(f => new ShelterFeedbackDto
+                {
+                    Comment = f.Comment,
+                    Rating = f.Rating,
+                    CreatedAtUtc = f.CreatedAtUtc,
+                    User = f.User == null ? null : new UserSummaryDto
+                    {
+                        Id = f.User.Id,
+                        Name = f.User.Name,
+                        Surname = f.User.Surname,
+                        AvatarUrl = f.User.AvatarUrl
+                    }
+                }).ToList() ?? new List<ShelterFeedbackDto>()
             };
 
             return Ok(shelterDto);

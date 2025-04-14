@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ShelterApp
 {
-    public class ShelterFeedback
+    public class ShelterFeedback : BaseEntity
     {
         [Required]
         public string UserId { get; set; }

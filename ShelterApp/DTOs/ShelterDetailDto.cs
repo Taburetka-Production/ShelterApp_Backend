@@ -12,5 +12,7 @@
         public string Slug { get; set; }
         public AddressDto Address { get; set; }
         public List<AnimalSummaryDto> Animals { get; set; } = new List<AnimalSummaryDto>();
+        public List<ShelterFeedbackDto> Feedbacks { get; set; } = new List<ShelterFeedbackDto>();
+
     }
 }
