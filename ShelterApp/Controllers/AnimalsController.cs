@@ -9,13 +9,7 @@ namespace ShelterApp
     [Route("api/[controller]")]
     public class AnimalsController : ControllerBase
     {
-        //private readonly ApplicationDbContext _context;
         private readonly IUnitOfWork _unitOfWork;
-
-        //public AnimalsController(ApplicationDbContext context)
-        //{
-        //    _context = context;
-        //}
 
         public AnimalsController(IUnitOfWork unitOfWork) {
             _unitOfWork = unitOfWork;
@@ -31,32 +25,31 @@ namespace ShelterApp
 
             var animals = await _unitOfWork.AnimalRepository.GetAllAsync(includeProperties: "Shelter,Shelter.Address");
 
-            //var animals = await _context.Animals
-            //    .Include(a => a.Shelter)
-            //    .ThenInclude(s => s.Address)
-            //    .ToListAsync();
-
             return Ok(animals);
         }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Animal>> GetAnimal(Guid id)
+        [HttpGet("byslug/{slug}")]
+        public async Task<ActionResult<Animal>> GetAnimalBySlug(string slug)
         {
             if (_unitOfWork.AnimalRepository == null)
             {
-                return NotFound();
+                return Problem("Animal repository is not available.", statusCode: 500);
             }
 
-            var animal = await _unitOfWork.AnimalRepository.GetByIdAsync(id, includeProperties: "Shelter,Shelter.Address");
+            if (string.IsNullOrWhiteSpace(slug))
+            {
+                return BadRequest("Slug cannot be empty.");
+            }
 
-            //var animal = await _context.Animals
-            //    .Include(a => a.Shelter)
-            //    .ThenInclude(s => s.Address)
-            //    .FirstOrDefaultAsync(a => a.Id == id);
+            var animal = await _unitOfWork.AnimalRepository.GetFirstOrDefaultAsync(
+                filter: a => a.Slug == slug.ToLowerInvariant(),
+                includeProperties: "Shelter,Shelter.Address,Photos",
+                tracked: false
+            );
 
             if (animal == null)
             {
-                return NotFound();
+                return NotFound($"Animal with slug '{slug}' not found.");
             }
 
             return Ok(animal);
@@ -73,6 +66,21 @@ namespace ShelterApp
 
             var shelter = await _unitOfWork.ShelterRepository.GetByIdAsync(dto.ShelterId);
             if (shelter == null) return NotFound("Shelter not found.");
+
+            if (string.IsNullOrWhiteSpace(dto.Name))
+            {
+                return BadRequest("Animal name is required to generate a slug.");
+            }
+
+            string baseSlug = UrlSlugger.GenerateSlug(dto.Name);
+            string finalSlug = baseSlug;
+            int counter = 1;
+
+            while (await _unitOfWork.AnimalRepository.ExistsAsync(a => a.Slug == finalSlug))
+            {
+                finalSlug = $"{baseSlug}-{counter}";
+                counter++;
+            }
 
             var animal = new Animal
             {
@@ -91,7 +99,6 @@ namespace ShelterApp
                 CreatedAtUtc = DateTime.UtcNow
             };
 
-            // Додавання фотографій
             if (dto.PhotoUrls != null)
             {
                 animal.Photos = dto.PhotoUrls.Select(url => new AnimalPhoto
@@ -105,7 +112,7 @@ namespace ShelterApp
             await _unitOfWork.AnimalRepository.AddAsync(animal);
             await _unitOfWork.SaveAsync();
 
-            return CreatedAtAction(nameof(GetAnimal), new { id = animal.Id }, animal);
+            return CreatedAtAction(nameof(GetAnimalBySlug), new { slug = animal.Slug }, animal);
         }
 
         [HttpPut("ChangeAnimalInfo")]
@@ -115,7 +122,6 @@ namespace ShelterApp
             var animal = await _unitOfWork.AnimalRepository.GetByIdAsync(id, includeProperties: "Photos");
             if (animal == null) return NotFound("Animal not found.");
 
-            // Оновлення полів
             animal.Name = dto.Name ?? animal.Name;
             animal.Species = dto.Species ?? animal.Species;
             animal.Breed = dto.Breed ?? animal.Breed;
@@ -136,6 +142,73 @@ namespace ShelterApp
             }
 
             return NoContent();
+        }
+
+        [HttpPost("populate-slugs")]
+        [AllowAnonymous]
+        public async Task<IActionResult> PopulateExistingAnimalSlugs()
+        {
+            if (_unitOfWork.AnimalRepository == null)
+            {
+                return Problem("Animal repository is not available.", statusCode: 500);
+            }
+
+            int updatedCount = 0;
+            var animalsToUpdate = new List<Animal>();
+
+            try
+            {
+                var allSlugsQuery = _unitOfWork.AnimalRepository.GetAllAsync(
+                     filter: s => !string.IsNullOrEmpty(s.Slug)
+                );
+                var existingSlugsSet = (await allSlugsQuery)
+                                         .Select(s => s.Slug)
+                                         .ToHashSet();
+
+                animalsToUpdate = (await _unitOfWork.AnimalRepository.GetAllAsync(
+                     filter: s => string.IsNullOrEmpty(s.Slug)
+                )).ToList();
+
+                if (!animalsToUpdate.Any())
+                {
+                    return Ok("No animals found needing slug population.");
+                }
+
+                foreach (var animal in animalsToUpdate)
+                {
+                    if (string.IsNullOrWhiteSpace(animal.Name))
+                    {
+                        continue;
+                    }
+
+                    string baseSlug = UrlSlugger.GenerateSlug(animal.Name);
+                    string finalSlug = baseSlug;
+                    int counter = 1;
+
+                    while (existingSlugsSet.Contains(finalSlug))
+                    {
+                        finalSlug = $"{baseSlug}-{counter}";
+                        counter++;
+                    }
+
+                    if (finalSlug != null)
+                    {
+                        animal.Slug = finalSlug;
+                        animal.UpdatedAtUtc = DateTime.UtcNow;
+                        existingSlugsSet.Add(finalSlug);
+                        updatedCount++;
+                    }
+                }
+
+                await _unitOfWork.SaveAsync();
+
+                return Ok($"Successfully populated slugs for {updatedCount} animals out of {animalsToUpdate.Count} processed.");
+            }
+            catch (Exception ex)
+            {
+                // Log the exception ex
+                return StatusCode(500, $"An error occurred during animal slug population: {ex.Message}");
+            }
         }
 
         [HttpDelete("{id}")]

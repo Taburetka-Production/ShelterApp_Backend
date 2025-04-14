@@ -20,7 +20,7 @@ namespace ShelterApp
         [HttpGet]
         public async Task<ActionResult> GetShelters()
         {
-            var shelters = await _unitOfWork.ShelterRepository.GetAllAsync(includeProperties: "Address");
+            var shelters = await _unitOfWork.ShelterRepository.GetAllAsync(includeProperties: "Animals");
 
             return Ok(shelters);
         }
@@ -78,7 +78,6 @@ namespace ShelterApp
                 return Unauthorized("Користувач не автентифікований.");
             }
 
-            // Створення адреси з даних DTO
             var address = new Address
             {
                 Country = dto.Country,
@@ -92,9 +91,8 @@ namespace ShelterApp
             };
 
             await _unitOfWork.AddressRepository.AddAsync(address);
-            await _unitOfWork.SaveAsync(); // Зберегти адресу для отримання ID
+            await _unitOfWork.SaveAsync();
 
-            // Генерація унікального slug
             string baseSlug = UrlSlugger.GenerateSlug(dto.Name);
             string finalSlug = baseSlug;
             int counter = 1;
@@ -105,7 +103,6 @@ namespace ShelterApp
                 counter++;
             }
 
-            // Створення притулку
             var shelter = new Shelter
             {
                 Name = dto.Name,
@@ -114,7 +111,7 @@ namespace ShelterApp
                 Rating = 0.0,
                 ReviewsCount = 0,
                 AnimalsCount = 0,
-                AddressId = address.Id, // Використовуємо ID створеної адреси
+                AddressId = address.Id,
                 UserId = userId,
                 Slug = finalSlug
             };
@@ -124,20 +121,18 @@ namespace ShelterApp
                 await _unitOfWork.ShelterRepository.AddAsync(shelter);
                 await _unitOfWork.SaveAsync();
 
-                // Отримання повної інформації з адресою для відповіді
                 var createdShelter = await _unitOfWork.ShelterRepository.GetByIdAsync(shelter.Id, includeProperties: "Address");
-                return CreatedAtAction(nameof(GetShelterById), new { id = createdShelter.Id }, createdShelter);
+                return CreatedAtAction(nameof(GetShelterBySlug), new { slug = createdShelter.Slug }, createdShelter);
             }
             catch (Exception ex)
             {
-                // Відкат адреси у разі помилки
                 _unitOfWork.AddressRepository.Remove(address);
                 await _unitOfWork.SaveAsync();
                 return StatusCode(500, $"Помилка: {ex.Message}");
             }
         }
 
-        [HttpPost("populate-slugs")] // Choose a distinct route
+        [HttpPost("populate-slugs")]
         public async Task<IActionResult> PopulateExistingSlugs()
         {
             if (_unitOfWork.ShelterRepository == null)
@@ -146,7 +141,7 @@ namespace ShelterApp
             }
 
             int updatedCount = 0;
-            var sheltersToUpdate = new List<Shelter>(); // To hold entities needing update
+            var sheltersToUpdate = new List<Shelter>();
 
             try
             {
@@ -244,8 +239,6 @@ namespace ShelterApp
         [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
         public async Task<IActionResult> DeleteShelter(Guid id)
         {
-
-            // Отримання притулку з репозиторію
             var shelter = await _unitOfWork.ShelterRepository.GetByIdAsync(id, includeProperties: "Address");
             if (shelter == null)
             {
@@ -255,36 +248,28 @@ namespace ShelterApp
             {
                 _unitOfWork.AddressRepository.Remove(shelter.Address);
             }
-            // Видалення UsersShelters (зв'язки користувачів з притулком)
             var usersShelters = await _unitOfWork.UsersShelterRepository.GetAllAsync(us => us.ShelterId == id);
             _unitOfWork.UsersShelterRepository.RemoveRange(usersShelters);
 
-            // Видалення відгуків (ShelterFeedback)
             var shelterFeedbacks = await _unitOfWork.ShelterFeedbackRepository.GetAllAsync(sf => sf.ShelterId == id);
             _unitOfWork.ShelterFeedbackRepository.RemoveRange(shelterFeedbacks);
 
-            // Видалення тварин (Animal) та їхніх залежностей
             var animals = await _unitOfWork.AnimalRepository.GetAllAsync(a => a.ShelterId == id);
             foreach (var animal in animals)
             {
-                // Видалення фотографій тварини (AnimalPhoto)
                 var animalPhotos = await _unitOfWork.AnimalPhotoRepository.GetAllAsync(ap => ap.AnimalId == animal.Id);
                 _unitOfWork.AnimalPhotoRepository.RemoveRange(animalPhotos);
 
-                // Видалення зв'язків UsersAnimal
                 var usersAnimals = await _unitOfWork.UsersAnimalRepository.GetAllAsync(ua => ua.AnimalId == animal.Id);
                 _unitOfWork.UsersAnimalRepository.RemoveRange(usersAnimals);
 
-                // Видалення заявок на усиновлення (AdoptionRequest)
                 var adoptionRequests = await _unitOfWork.AdoptionRequestRepository.GetAllAsync(ar => ar.AnimalId == animal.Id);
                 _unitOfWork.AdoptionRequestRepository.RemoveRange(adoptionRequests);
             }
-            _unitOfWork.AnimalRepository.RemoveRange(animals); // Видалити всіх тварин притулку
+            _unitOfWork.AnimalRepository.RemoveRange(animals);
 
-            // Видалення самого притулку
             _unitOfWork.ShelterRepository.Remove(shelter);
 
-            // Збереження змін
             await _unitOfWork.SaveAsync();
 
             return NoContent();

@@ -28,6 +28,8 @@ namespace ShelterApp
         [ForeignKey("ShelterId")]
         public Shelter Shelter { get; set; }
         public AdoptionRequest? AdoptionRequest { get; set; }
+        [Required]
+        public string Slug { get; set; } = String.Empty;
 
         public virtual ICollection<AnimalPhoto> Photos { get; set; } = new List<AnimalPhoto>();
         public virtual ICollection<UsersAnimal> UsersAnimal { get; set; } = new List<UsersAnimal>();
