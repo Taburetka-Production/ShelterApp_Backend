@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ShelterApp.Data;
-using ShelterApp.DTOs;
 using System.Security.Claims;
 
 namespace ShelterApp
@@ -20,42 +19,78 @@ namespace ShelterApp
         [HttpGet]
         public async Task<ActionResult> GetShelters()
         {
-            var shelters = await _unitOfWork.ShelterRepository.GetAllAsync(includeProperties: "Animals");
+            var shelters = await _unitOfWork.ShelterRepository.GetAllAsync(includeProperties: "Animals,Address");
 
-            return Ok(shelters);
+            var shelterDtos = shelters.Select(s => new ShelterSummaryDto
+            {
+                Id = s.Id,
+                Name = s.Name,
+                Rating = s.Rating,
+                AnimalsCount = s.AnimalsCount,
+                ImageUrl = s.ImageUrl,
+                Slug = s.Slug,
+                City = s.Address?.City,
+                Region = s.Address?.Region,
+                Description = s.Description
+            });
+
+            return Ok(shelterDtos);
         }
 
         [HttpGet("byslug/{slug}")]
-        public async Task<ActionResult<Shelter>> GetShelterBySlug(string slug)
+        public async Task<ActionResult<ShelterDetailDto>> GetShelterBySlug(string slug)
         {
             if (string.IsNullOrWhiteSpace(slug))
             {
                 return BadRequest("Slug cannot be empty.");
             }
 
-            var shelter = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(
+            string includeProps = "Address,Animals.Photos";
+
+            var shelterEntity = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(
                 filter: s => s.Slug == slug.ToLowerInvariant(),
-                includeProperties: "Address",
+                includeProperties: includeProps,
                 tracked: false
             );
 
-            if (shelter == null)
+            if (shelterEntity == null)
             {
                 return NotFound($"Shelter with slug '{slug}' not found.");
             }
 
-            return Ok(shelter);
-        }
-
-        [HttpGet("{id}")]
-        public async Task<ActionResult> GetShelterById(Guid id)
-        {
-            var shelter = await _unitOfWork.ShelterRepository.GetByIdAsync(id, includeProperties: "Address");
-            if (shelter == null)
+            var shelterDto = new ShelterDetailDto
             {
-                return NotFound("Shelter not found.");
-            }
-            return Ok(shelter);
+                Id = shelterEntity.Id,
+                Name = shelterEntity.Name,
+                Rating = shelterEntity.Rating,
+                ReviewsCount = shelterEntity.ReviewsCount,
+                AnimalsCount = shelterEntity.AnimalsCount,
+                Description = shelterEntity.Description,
+                ImageUrl = shelterEntity.ImageUrl,
+                Slug = shelterEntity.Slug,
+                Address = shelterEntity.Address == null ? null : new AddressDto
+                {
+                    Country = shelterEntity.Address.Country,
+                    Region = shelterEntity.Address.Region,
+                    District = shelterEntity.Address.District,
+                    City = shelterEntity.Address.City,
+                    Street = shelterEntity.Address.Street,
+                    Apartments = shelterEntity.Address.Apartments,
+                    lng = shelterEntity.Address.lng,
+                    lat = shelterEntity.Address.lat
+                },
+                Animals = shelterEntity.Animals?.Select(a => new AnimalSummaryDto
+                {
+                    Id = a.Id,
+                    Name = a.Name,
+                    Species = a.Species,
+                    Status = a.Status,
+                    Slug = a.Slug,
+                    PrimaryPhotoUrl = a.Photos?.FirstOrDefault()?.PhotoURL
+                }).ToList() ?? new List<AnimalSummaryDto>()
+            };
+
+            return Ok(shelterDto);
         }
 
         [HttpPost]

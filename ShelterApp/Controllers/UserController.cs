@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ShelterApp.Data;
-using ShelterApp.DTOs;
 using System.Security.Claims;
 
 namespace ShelterApp

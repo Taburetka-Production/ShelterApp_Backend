@@ -2,7 +2,6 @@
 {
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Mvc;
-    using ShelterApp.DTOs;
     using System.Security.Claims;
     using System.Threading.Tasks;
 

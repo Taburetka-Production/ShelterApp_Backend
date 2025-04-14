@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace ShelterApp.DTOs
+namespace ShelterApp
 {
     public class TransferAdminDto
     {
