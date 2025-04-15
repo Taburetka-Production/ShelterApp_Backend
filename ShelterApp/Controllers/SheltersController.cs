@@ -107,7 +107,7 @@ namespace ShelterApp
         }
 
         [HttpPost]
-        [Authorize(Roles = "ShelterAdmin")]
+        //[Authorize(Roles = "ShelterAdmin")]
         public async Task<ActionResult<Shelter>> CreateShelter([FromBody] CreateShelterDto dto)
         {
             if (_unitOfWork.ShelterRepository == null)

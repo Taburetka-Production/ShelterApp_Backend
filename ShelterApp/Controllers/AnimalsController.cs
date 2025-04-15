@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using ShelterApp.Data;
+using System.Security.Claims;
 
 namespace ShelterApp
 {
@@ -24,8 +25,26 @@ namespace ShelterApp
             }
 
             var animals = await _unitOfWork.AnimalRepository.GetAllAsync(includeProperties: "Shelter,Shelter.Address");
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            return Ok(animals);
+            var animalsResponse = animals.Select(a => new
+            {
+                id = a.Id,
+                createdAtUtc = a.CreatedAtUtc,
+                name = a.Name,
+                species = a.Species,
+                breed = a.Breed,
+                age = a.Age,
+                sex = a.Sex,
+                size = a.Size,
+                sterilized = a.Sterilized,
+                healthCondition = a.HealthCondition,
+                description = a.Description,
+                photoUrl = a.Photos.Count >= 1 ? a.Photos.First() : null,
+                inFavourites = userId != null ? a.UsersAnimal.Select(ua => ua.UserId).ToList().Contains(userId) : false
+            });
+
+            return Ok(animalsResponse);
         }
 
         [HttpGet("byslug/{slug}")]
@@ -52,11 +71,40 @@ namespace ShelterApp
                 return NotFound($"Animal with slug '{slug}' not found.");
             }
 
-            return Ok(animal);
+            var animalResponse = new
+            {
+                id = animal.Id,
+                createdAtUtc = animal.CreatedAtUtc,
+                updatedAtUtc = animal.UpdatedAtUtc,
+                userLastModified = animal.UserLastModified,
+                name = animal.Name,
+                species = animal.Species,
+                breed = animal.Breed,
+                age = animal.Age,
+                status = animal.Status,
+                sex = animal.Sex,
+                size = animal.Size,
+                sterilized = animal.Sterilized,
+                healthCondition = animal.HealthCondition,
+                description = animal.Description,
+                shelter = new
+                {
+                    name = animal.Shelter.Name,
+                    slug = animal.Shelter.Slug
+                },
+                photos = animal.Photos.Select(p => new { photoUrl = p.PhotoURL }).ToList(),
+                address = new
+                {
+                    lng = animal.Shelter.Address.lng,
+                    lat = animal.Shelter.Address.lat
+                }
+            };
+
+            return Ok(animalResponse);
         }
 
         [HttpPost("AddAnimal")]
-        [Authorize(Roles = "ShelterAdmin")]
+        //[Authorize(Roles = "ShelterAdmin")]
         public async Task<IActionResult> CreateAnimal([FromBody] CreateAnimalDto dto)
         {
             if (!ModelState.IsValid)
@@ -76,6 +124,7 @@ namespace ShelterApp
             string finalSlug = baseSlug;
             int counter = 1;
 
+            // Ensure the slug is unique
             while (await _unitOfWork.AnimalRepository.ExistsAsync(a => a.Slug == finalSlug))
             {
                 finalSlug = $"{baseSlug}-{counter}";
@@ -86,6 +135,7 @@ namespace ShelterApp
             {
                 Id = Guid.NewGuid(),
                 Name = dto.Name,
+                Slug = finalSlug, // <-- *** ASSIGN THE CALCULATED SLUG HERE ***
                 Species = dto.Species,
                 Breed = dto.Breed,
                 Age = dto.Age,
@@ -99,7 +149,7 @@ namespace ShelterApp
                 CreatedAtUtc = DateTime.UtcNow
             };
 
-            if (dto.PhotoUrls != null)
+            if (dto.PhotoUrls != null && dto.PhotoUrls.Any()) // Good practice to check if list has items
             {
                 animal.Photos = dto.PhotoUrls.Select(url => new AnimalPhoto
                 {
@@ -108,12 +158,19 @@ namespace ShelterApp
                     AnimalId = animal.Id
                 }).ToList();
             }
+            else // Initialize Photos to an empty list if none provided
+            {
+                animal.Photos = new List<AnimalPhoto>();
+            }
+
 
             await _unitOfWork.AnimalRepository.AddAsync(animal);
             await _unitOfWork.SaveAsync();
 
+            // Now animal.Slug has the correct value
             return CreatedAtAction(nameof(GetAnimalBySlug), new { slug = animal.Slug }, animal);
         }
+
 
         [HttpPut("ChangeAnimalInfo")]
         [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
