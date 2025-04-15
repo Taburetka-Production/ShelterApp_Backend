@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ShelterApp.Data;
+using System.Security.Claims;
 
 namespace ShelterApp
 {
@@ -18,60 +19,129 @@ namespace ShelterApp
         [HttpGet]
         public async Task<ActionResult> GetShelters()
         {
-            var shelters = await _unitOfWork.ShelterRepository.GetAllAsync(includeProperties: "Address");
+            var shelters = await _unitOfWork.ShelterRepository.GetAllAsync(includeProperties: "Animals,Address");
 
-            return Ok(shelters);
+            var shelterDtos = shelters.Select(s => new ShelterSummaryDto
+            {
+                Id = s.Id,
+                Name = s.Name,
+                Rating = s.Rating,
+                AnimalsCount = s.AnimalsCount,
+                ImageUrl = s.ImageUrl,
+                Slug = s.Slug,
+                City = s.Address?.City,
+                Region = s.Address?.Region,
+                Description = s.Description
+            });
+
+            return Ok(shelterDtos);
         }
 
         [HttpGet("byslug/{slug}")]
-        public async Task<ActionResult<Shelter>> GetShelterBySlug(string slug)
+        public async Task<ActionResult<ShelterDetailDto>> GetShelterBySlug(string slug)
         {
             if (string.IsNullOrWhiteSpace(slug))
             {
                 return BadRequest("Slug cannot be empty.");
             }
 
-            var shelter = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(
+            string includeProps = "Address,Animals.Photos,ShelterFeedbacks,ShelterFeedbacks.User";
+
+            var shelterEntity = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(
                 filter: s => s.Slug == slug.ToLowerInvariant(),
-                includeProperties: "Address",
+                includeProperties: includeProps,
                 tracked: false
             );
 
-            if (shelter == null)
+            if (shelterEntity == null)
             {
                 return NotFound($"Shelter with slug '{slug}' not found.");
             }
 
-            return Ok(shelter);
-        }
-
-        [HttpGet("{id}")]
-        public async Task<ActionResult> GetShelterById(Guid id)
-        {
-            var shelter = await _unitOfWork.ShelterRepository.GetByIdAsync(id, includeProperties: "Address");
-            if (shelter == null)
+            var shelterDto = new ShelterDetailDto
             {
-                return NotFound("Shelter not found.");
-            }
-            return Ok(shelter);
+                Id = shelterEntity.Id,
+                Name = shelterEntity.Name,
+                Rating = shelterEntity.Rating,
+                ReviewsCount = shelterEntity.ReviewsCount,
+                AnimalsCount = shelterEntity.AnimalsCount,
+                Description = shelterEntity.Description,
+                ImageUrl = shelterEntity.ImageUrl,
+                Slug = shelterEntity.Slug,
+                Address = shelterEntity.Address == null ? null : new AddressDto
+                {
+                    Country = shelterEntity.Address.Country,
+                    Region = shelterEntity.Address.Region,
+                    District = shelterEntity.Address.District,
+                    City = shelterEntity.Address.City,
+                    Street = shelterEntity.Address.Street,
+                    Apartments = shelterEntity.Address.Apartments,
+                    lng = shelterEntity.Address.lng,
+                    lat = shelterEntity.Address.lat
+                },
+                Animals = shelterEntity.Animals?.Select(a => new AnimalSummaryDto
+                {
+                    Id = a.Id,
+                    Name = a.Name,
+                    Species = a.Species,
+                    Status = a.Status,
+                    Slug = a.Slug,
+                    PrimaryPhotoUrl = a.Photos?.FirstOrDefault()?.PhotoURL
+                }).ToList() ?? new List<AnimalSummaryDto>(),
+                Feedbacks = shelterEntity.ShelterFeedbacks?.Select(f => new ShelterFeedbackDto
+                {
+                    Comment = f.Comment,
+                    Rating = f.Rating,
+                    CreatedAtUtc = f.CreatedAtUtc,
+                    User = f.User == null ? null : new UserSummaryDto
+                    {
+                        Id = f.User.Id,
+                        Name = f.User.Name,
+                        Surname = f.User.Surname,
+                        AvatarUrl = f.User.AvatarUrl
+                    }
+                }).ToList() ?? new List<ShelterFeedbackDto>()
+            };
+
+            return Ok(shelterDto);
         }
 
         [HttpPost]
-        [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
-        public async Task<ActionResult<Shelter>> CreateShelter([FromBody] Shelter shelter)
+        [Authorize(Roles = "ShelterAdmin")]
+        public async Task<ActionResult<Shelter>> CreateShelter([FromBody] CreateShelterDto dto)
         {
             if (_unitOfWork.ShelterRepository == null)
             {
                 return Problem("Entity set 'ApplicationDbContext.Shelters' is null.");
             }
 
-            // Валідація вхідних даних
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            string baseSlug = UrlSlugger.GenerateSlug(shelter.Name);
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("Користувач не автентифікований.");
+            }
+
+            var address = new Address
+            {
+                Country = dto.Country,
+                Region = dto.Region,
+                District = dto.District,
+                City = dto.City,
+                Street = dto.Street,
+                Apartments = dto.Apartments,
+                lng = dto.lng,
+                lat = dto.lat
+            };
+
+            await _unitOfWork.AddressRepository.AddAsync(address);
+            await _unitOfWork.SaveAsync();
+
+            string baseSlug = UrlSlugger.GenerateSlug(dto.Name);
             string finalSlug = baseSlug;
             int counter = 1;
 
@@ -80,25 +150,37 @@ namespace ShelterApp
                 finalSlug = $"{baseSlug}-{counter}";
                 counter++;
             }
-            shelter.Slug = finalSlug;
+
+            var shelter = new Shelter
+            {
+                Name = dto.Name,
+                Description = dto.Description,
+                ImageUrl = dto.ImageUrl,
+                Rating = 0.0,
+                ReviewsCount = 0,
+                AnimalsCount = 0,
+                AddressId = address.Id,
+                UserId = userId,
+                Slug = finalSlug
+            };
 
             try
             {
-                // Додаємо шелтер до бази даних
                 await _unitOfWork.ShelterRepository.AddAsync(shelter);
                 await _unitOfWork.SaveAsync();
 
-                // Повертаємо створений ресурс з його ID
-                return CreatedAtAction(nameof(GetShelters), new { id = shelter.Id }, shelter);
+                var createdShelter = await _unitOfWork.ShelterRepository.GetByIdAsync(shelter.Id, includeProperties: "Address");
+                return CreatedAtAction(nameof(GetShelterBySlug), new { slug = createdShelter.Slug }, createdShelter);
             }
             catch (Exception ex)
             {
-                // Логування або обробка помилки
-                return StatusCode(500, $"Виникла помилка: {ex.Message}");
+                _unitOfWork.AddressRepository.Remove(address);
+                await _unitOfWork.SaveAsync();
+                return StatusCode(500, $"Помилка: {ex.Message}");
             }
         }
 
-        [HttpPost("populate-slugs")] // Choose a distinct route
+        [HttpPost("populate-slugs")]
         public async Task<IActionResult> PopulateExistingSlugs()
         {
             if (_unitOfWork.ShelterRepository == null)
@@ -107,7 +189,7 @@ namespace ShelterApp
             }
 
             int updatedCount = 0;
-            var sheltersToUpdate = new List<Shelter>(); // To hold entities needing update
+            var sheltersToUpdate = new List<Shelter>();
 
             try
             {
@@ -205,8 +287,6 @@ namespace ShelterApp
         [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
         public async Task<IActionResult> DeleteShelter(Guid id)
         {
-
-            // Отримання притулку з репозиторію
             var shelter = await _unitOfWork.ShelterRepository.GetByIdAsync(id, includeProperties: "Address");
             if (shelter == null)
             {
@@ -216,36 +296,28 @@ namespace ShelterApp
             {
                 _unitOfWork.AddressRepository.Remove(shelter.Address);
             }
-            // Видалення UsersShelters (зв'язки користувачів з притулком)
             var usersShelters = await _unitOfWork.UsersShelterRepository.GetAllAsync(us => us.ShelterId == id);
             _unitOfWork.UsersShelterRepository.RemoveRange(usersShelters);
 
-            // Видалення відгуків (ShelterFeedback)
             var shelterFeedbacks = await _unitOfWork.ShelterFeedbackRepository.GetAllAsync(sf => sf.ShelterId == id);
             _unitOfWork.ShelterFeedbackRepository.RemoveRange(shelterFeedbacks);
 
-            // Видалення тварин (Animal) та їхніх залежностей
             var animals = await _unitOfWork.AnimalRepository.GetAllAsync(a => a.ShelterId == id);
             foreach (var animal in animals)
             {
-                // Видалення фотографій тварини (AnimalPhoto)
                 var animalPhotos = await _unitOfWork.AnimalPhotoRepository.GetAllAsync(ap => ap.AnimalId == animal.Id);
                 _unitOfWork.AnimalPhotoRepository.RemoveRange(animalPhotos);
 
-                // Видалення зв'язків UsersAnimal
                 var usersAnimals = await _unitOfWork.UsersAnimalRepository.GetAllAsync(ua => ua.AnimalId == animal.Id);
                 _unitOfWork.UsersAnimalRepository.RemoveRange(usersAnimals);
 
-                // Видалення заявок на усиновлення (AdoptionRequest)
                 var adoptionRequests = await _unitOfWork.AdoptionRequestRepository.GetAllAsync(ar => ar.AnimalId == animal.Id);
                 _unitOfWork.AdoptionRequestRepository.RemoveRange(adoptionRequests);
             }
-            _unitOfWork.AnimalRepository.RemoveRange(animals); // Видалити всіх тварин притулку
+            _unitOfWork.AnimalRepository.RemoveRange(animals);
 
-            // Видалення самого притулку
             _unitOfWork.ShelterRepository.Remove(shelter);
 
-            // Збереження змін
             await _unitOfWork.SaveAsync();
 
             return NoContent();
