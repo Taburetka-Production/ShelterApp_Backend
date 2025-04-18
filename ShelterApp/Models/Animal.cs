@@ -27,9 +27,11 @@ namespace ShelterApp
         public Guid ShelterId { get; set; }
         [ForeignKey("ShelterId")]
         public Shelter Shelter { get; set; }
+        public AdoptionRequest? AdoptionRequest { get; set; }
+        [Required]
+        public string Slug { get; set; } = String.Empty;
 
-        // Замінено PhotoURL на колекцію фотографій
         public virtual ICollection<AnimalPhoto> Photos { get; set; } = new List<AnimalPhoto>();
-        public virtual ICollection<UsersAnimal>? UsersAnimal { get; set; }
+        public virtual ICollection<UsersAnimal> UsersAnimal { get; set; } = new List<UsersAnimal>();
     }
 }

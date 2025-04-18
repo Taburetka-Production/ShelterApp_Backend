@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ShelterApp.Data;
+using System.Security.Claims;
 
 namespace ShelterApp
 {
@@ -18,60 +19,257 @@ namespace ShelterApp
         [HttpGet]
         public async Task<ActionResult> GetShelters()
         {
-            var shelters = await _unitOfWork.ShelterRepository.GetAllAsync(includeProperties: "Address");
+            var shelters = await _unitOfWork.ShelterRepository.GetAllAsync(includeProperties: "Animals,Address");
 
-            return Ok(shelters);
+            var shelterDtos = shelters.Select(s => new ShelterSummaryDto
+            {
+                Id = s.Id,
+                Name = s.Name,
+                Rating = s.Rating,
+                AnimalsCount = s.AnimalsCount,
+                ImageUrl = s.ImageUrl,
+                Slug = s.Slug,
+                City = s.Address?.City,
+                Region = s.Address?.Region,
+                Description = s.Description
+            });
+
+            return Ok(shelterDtos);
         }
 
-        [HttpGet("byslug/{slug}")]
-        public async Task<ActionResult<Shelter>> GetShelterBySlug(string slug)
+        [HttpGet("{slug}")]
+        public async Task<ActionResult<ShelterDetailDto>> GetShelterBySlug(string slug)
         {
             if (string.IsNullOrWhiteSpace(slug))
             {
                 return BadRequest("Slug cannot be empty.");
             }
 
-            var shelter = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(
+            string includeProps = "Address,Animals.Photos,ShelterFeedbacks,ShelterFeedbacks.User";
+
+            var shelterEntity = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(
                 filter: s => s.Slug == slug.ToLowerInvariant(),
-                includeProperties: "Address",
+                includeProperties: includeProps,
                 tracked: false
             );
 
-            if (shelter == null)
+            if (shelterEntity == null)
             {
                 return NotFound($"Shelter with slug '{slug}' not found.");
             }
 
-            return Ok(shelter);
+            var shelterDto = new ShelterDetailDto
+            {
+                Id = shelterEntity.Id,
+                Name = shelterEntity.Name,
+                Rating = shelterEntity.Rating,
+                ReviewsCount = shelterEntity.ReviewsCount,
+                AnimalsCount = shelterEntity.AnimalsCount,
+                Description = shelterEntity.Description,
+                ImageUrl = shelterEntity.ImageUrl,
+                Slug = shelterEntity.Slug,
+                Address = shelterEntity.Address == null ? null : new AddressDto
+                {
+                    Country = shelterEntity.Address.Country,
+                    Region = shelterEntity.Address.Region,
+                    District = shelterEntity.Address.District,
+                    City = shelterEntity.Address.City,
+                    Street = shelterEntity.Address.Street,
+                    Apartments = shelterEntity.Address.Apartments,
+                    lng = shelterEntity.Address.lng,
+                    lat = shelterEntity.Address.lat
+                },
+                Animals = shelterEntity.Animals?.Select(a => new AnimalSummaryDto
+                {
+                    Name = a.Name,
+                    Species = a.Species,
+                    Status = a.Status,
+                    Slug = a.Slug,
+                    PrimaryPhotoUrl = a.Photos?.FirstOrDefault()?.PhotoURL
+                }).ToList() ?? new List<AnimalSummaryDto>(),
+                Feedbacks = shelterEntity.ShelterFeedbacks?.Select(f => new ShelterFeedbackDto
+                {
+                    Comment = f.Comment,
+                    Rating = f.Rating,
+                    CreatedAtUtc = f.CreatedAtUtc,
+                    User = f.User == null ? null : new UserSummaryDto
+                    {
+                        Username = f.User.UserName,
+                        AvatarUrl = f.User.AvatarUrl
+                    }
+                }).ToList() ?? new List<ShelterFeedbackDto>()
+            };
+
+            return Ok(shelterDto);
         }
 
-        [HttpGet("{id}")]
-        public async Task<ActionResult> GetShelterById(Guid id)
+        [HttpPost("{slug}/toggle-save")]
+        [Authorize]
+        public async Task<IActionResult> ToggleSaveShelterBySlug(string slug)
         {
-            var shelter = await _unitOfWork.ShelterRepository.GetByIdAsync(id, includeProperties: "Address");
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var shelter = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(s => s.Slug == slug.ToLowerInvariant());
             if (shelter == null)
             {
                 return NotFound("Shelter not found.");
             }
-            return Ok(shelter);
+
+            var existingUserShelter = await _unitOfWork.UsersShelterRepository.GetFirstOrDefaultAsync(
+                filter: us => us.ShelterId == shelter.Id && us.UserId == userId);
+
+            bool isNowSaved;
+
+            if (existingUserShelter != null)
+            {
+                _unitOfWork.UsersShelterRepository.Remove(existingUserShelter);
+                isNowSaved = false;
+            }
+            else
+            {
+                var newUserShelter = new UsersShelter
+                {
+                    Id = Guid.NewGuid(),
+                    ShelterId = shelter.Id,
+                    UserId = userId,
+                    CreatedAtUtc = DateTime.UtcNow
+                };
+                await _unitOfWork.UsersShelterRepository.AddAsync(newUserShelter);
+                isNowSaved = true;
+            }
+
+            try
+            {
+                await _unitOfWork.SaveAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(500, "An error occurred while updating the save status.");
+            }
+
+            return Ok(new SaveToggleResultDto { IsSaved = isNowSaved });
+        }
+
+        [HttpPost("{slug}/feedback")]
+        [Authorize]
+        public async Task<IActionResult> AddShelterFeedbackBySlug(string slug, [FromBody] CreateShelterFeedbackDto feedbackDto)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var shelter = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(s => s.Slug == slug.ToLowerInvariant());
+            if (shelter == null)
+            {
+                return NotFound("Shelter not found.");
+            }
+
+            var existingFeedback = await _unitOfWork.ShelterFeedbackRepository.ExistsAsync(
+                sf => sf.ShelterId == shelter.Id && sf.UserId == userId
+            );
+            if (existingFeedback)
+            {
+                return Conflict("User has already submitted feedback for this shelter.");
+            }
+
+            var newFeedback = new ShelterFeedback
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                ShelterId = shelter.Id,
+                Comment = feedbackDto.Comment,
+                Rating = feedbackDto.Rating,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+
+            await _unitOfWork.ShelterFeedbackRepository.AddAsync(newFeedback);
+
+            double currentTotalRating = shelter.Rating * shelter.ReviewsCount;
+            int newReviewsCount = shelter.ReviewsCount + 1;
+            double newAverageRating = (currentTotalRating + newFeedback.Rating) / newReviewsCount;
+
+            shelter.Rating = newAverageRating;
+            shelter.ReviewsCount = newReviewsCount;
+            shelter.UpdatedAtUtc = DateTime.UtcNow;
+            shelter.UserLastModified = Guid.Parse(userId);
+
+            try
+            {
+                await _unitOfWork.SaveAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while saving the feedback.");
+            }
+
+
+            var createdFeedback = await _unitOfWork.ShelterFeedbackRepository.GetFirstOrDefaultAsync(
+                filter: sf => sf.Id == newFeedback.Id,
+                includeProperties: "User"
+            );
+
+            var responseDto = new ShelterFeedbackDto
+            {
+                Comment = createdFeedback.Comment,
+                Rating = createdFeedback.Rating,
+                CreatedAtUtc = createdFeedback.CreatedAtUtc,
+                User = createdFeedback.User == null ? null : new UserSummaryDto
+                {
+                    Username = createdFeedback.User.UserName,
+                    AvatarUrl = createdFeedback.User.AvatarUrl
+                }
+            };
+
+            return CreatedAtAction(nameof(GetShelterBySlug), new { slug = shelter.Slug }, responseDto);
         }
 
         [HttpPost]
-        [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
-        public async Task<ActionResult<Shelter>> CreateShelter([FromBody] Shelter shelter)
+        [Authorize(Roles = "ShelterAdmin")]
+        public async Task<ActionResult<Shelter>> CreateShelter([FromBody] CreateShelterDto dto)
         {
             if (_unitOfWork.ShelterRepository == null)
             {
                 return Problem("Entity set 'ApplicationDbContext.Shelters' is null.");
             }
 
-            // Валідація вхідних даних
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            string baseSlug = UrlSlugger.GenerateSlug(shelter.Name);
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("Користувач не автентифікований.");
+            }
+
+            var address = new Address
+            {
+                Country = dto.Country,
+                Region = dto.Region,
+                District = dto.District,
+                City = dto.City,
+                Street = dto.Street,
+                Apartments = dto.Apartments,
+                lng = dto.lng,
+                lat = dto.lat
+            };
+
+            await _unitOfWork.AddressRepository.AddAsync(address);
+            await _unitOfWork.SaveAsync();
+
+            string baseSlug = UrlSlugger.GenerateSlug(dto.Name);
             string finalSlug = baseSlug;
             int counter = 1;
 
@@ -80,25 +278,37 @@ namespace ShelterApp
                 finalSlug = $"{baseSlug}-{counter}";
                 counter++;
             }
-            shelter.Slug = finalSlug;
+
+            var shelter = new Shelter
+            {
+                Name = dto.Name,
+                Description = dto.Description,
+                ImageUrl = dto.ImageUrl,
+                Rating = 0.0,
+                ReviewsCount = 0,
+                AnimalsCount = 0,
+                AddressId = address.Id,
+                UserId = userId,
+                Slug = finalSlug
+            };
 
             try
             {
-                // Додаємо шелтер до бази даних
                 await _unitOfWork.ShelterRepository.AddAsync(shelter);
                 await _unitOfWork.SaveAsync();
 
-                // Повертаємо створений ресурс з його ID
-                return CreatedAtAction(nameof(GetShelters), new { id = shelter.Id }, shelter);
+                var createdShelter = await _unitOfWork.ShelterRepository.GetByIdAsync(shelter.Id, includeProperties: "Address");
+                return CreatedAtAction(nameof(GetShelterBySlug), new { slug = createdShelter.Slug }, createdShelter);
             }
             catch (Exception ex)
             {
-                // Логування або обробка помилки
-                return StatusCode(500, $"Виникла помилка: {ex.Message}");
+                _unitOfWork.AddressRepository.Remove(address);
+                await _unitOfWork.SaveAsync();
+                return StatusCode(500, $"Помилка: {ex.Message}");
             }
         }
 
-        [HttpPost("populate-slugs")] // Choose a distinct route
+        [HttpPost("populate-slugs")]
         public async Task<IActionResult> PopulateExistingSlugs()
         {
             if (_unitOfWork.ShelterRepository == null)
@@ -107,7 +317,7 @@ namespace ShelterApp
             }
 
             int updatedCount = 0;
-            var sheltersToUpdate = new List<Shelter>(); // To hold entities needing update
+            var sheltersToUpdate = new List<Shelter>();
 
             try
             {
@@ -163,50 +373,91 @@ namespace ShelterApp
             }
         }
 
-        //[HttpPut("UpdateShelter")]
-        //[Authorize(Roles = "ShelterAdmin,SuperAdmin")]
-        //public async Task<IActionResult> UpdateShelter(Guid id, [FromBody] UpdateShelterDto dto)
-        //{
-        //    var shelter = await _context.Shelters
-        //        .Include(s => s.Address)
-        //        .FirstOrDefaultAsync(s => s.Id == id);
+        [HttpPut("{id}")]
+        [Authorize(Roles = "SuperAdmin")]
+        public async Task<IActionResult> UpdateShelter(Guid id, [FromBody] UpdateShelterDto dto)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("Користувач не автентифікований.");
+            }
 
-        //    if (shelter == null)
-        //    {
-        //        return NotFound("Shelter not found.");
-        //    }
+            var shelter = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(
+                s => s.Id == id,
+                includeProperties: "Address",
+                tracked: true
+            );
 
-        //    shelter.Name = dto.Name ?? shelter.Name;
-        //    shelter.Rating = dto.Rating ?? shelter.Rating;
-        //    shelter.ReviewsCount = dto.ReviewsCount ?? shelter.ReviewsCount;
-        //    shelter.AnimalsCount = dto.AnimalsCount ?? shelter.AnimalsCount;
-        //    shelter.Description = dto.Description ?? shelter.Description;
-        //    shelter.ImageUrl = dto.ImageUrl ?? shelter.ImageUrl;
+            if (shelter == null)
+            {
+                return NotFound("Shelter not found.");
+            }
 
-        //    if (dto.AddressId.HasValue && dto.AddressId != shelter.AddressId)
-        //    {
-        //        var newAddress = await _context.Addresses.FindAsync(dto.AddressId.Value);
-        //        if (newAddress == null)
-        //        {
-        //            return NotFound("New address not found.");
-        //        }
-        //        shelter.AddressId = newAddress.Id;
-        //        shelter.Address = newAddress;
-        //    }
+            // Оновлення імені та слаг (навіть якщо ім'я не змінилося, але передано явно)
+            if (dto.Name != null)
+            {
+                bool nameChanged = !shelter.Name.Equals(dto.Name.Trim(), StringComparison.OrdinalIgnoreCase);
 
-        //    shelter.UpdatedAtUtc = DateTime.UtcNow;
+                if (nameChanged)
+                {
+                    shelter.Name = dto.Name.Trim();
 
-        //    await _context.SaveChangesAsync();
+                    // Генерація нового слаг тільки при зміні імені
+                    string baseSlug = UrlSlugger.GenerateSlug(shelter.Name);
+                    string finalSlug = baseSlug;
+                    int counter = 1;
 
-        //    return Ok(shelter);
-        //}
+                    while (await _unitOfWork.ShelterRepository.ExistsAsync(s => s.Slug == finalSlug && s.Id != id))
+                    {
+                        finalSlug = $"{baseSlug}-{counter}";
+                        counter++;
+                    }
+                    shelter.Slug = finalSlug;
+                }
+            }
+
+            // Оновлення інших полів
+            shelter.Description = dto.Description ?? shelter.Description;
+            shelter.ImageUrl = dto.ImageUrl ?? shelter.ImageUrl;
+
+            // Оновлення адреси
+            if (dto.Address != null)
+            {
+                shelter.Address ??= new Address();
+
+                shelter.Address.Country = dto.Address.Country ?? shelter.Address.Country;
+                shelter.Address.Region = dto.Address.Region ?? shelter.Address.Region;
+                shelter.Address.District = dto.Address.District ?? shelter.Address.District;
+                shelter.Address.City = dto.Address.City ?? shelter.Address.City;
+                shelter.Address.Street = dto.Address.Street ?? shelter.Address.Street;
+                shelter.Address.Apartments = dto.Address.Apartments ?? shelter.Address.Apartments;
+                shelter.Address.lng = dto.Address.lng;
+                shelter.Address.lat = dto.Address.lat;
+
+                _unitOfWork.AddressRepository.Update(shelter.Address);
+            }
+
+            shelter.UpdatedAtUtc = DateTime.UtcNow;
+            shelter.UserLastModified = Guid.Parse(userId);
+
+            try
+            {
+                _unitOfWork.ShelterRepository.Update(shelter);
+                await _unitOfWork.SaveAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(500, "Помилка при оновленні притулку");
+            }
+
+            return Ok(await _unitOfWork.ShelterRepository.GetByIdAsync(id, includeProperties: "Address"));
+        }
 
         [HttpDelete("{id}")]
         [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
         public async Task<IActionResult> DeleteShelter(Guid id)
         {
-
-            // Отримання притулку з репозиторію
             var shelter = await _unitOfWork.ShelterRepository.GetByIdAsync(id, includeProperties: "Address");
             if (shelter == null)
             {
@@ -216,36 +467,28 @@ namespace ShelterApp
             {
                 _unitOfWork.AddressRepository.Remove(shelter.Address);
             }
-            // Видалення UsersShelters (зв'язки користувачів з притулком)
             var usersShelters = await _unitOfWork.UsersShelterRepository.GetAllAsync(us => us.ShelterId == id);
             _unitOfWork.UsersShelterRepository.RemoveRange(usersShelters);
 
-            // Видалення відгуків (ShelterFeedback)
             var shelterFeedbacks = await _unitOfWork.ShelterFeedbackRepository.GetAllAsync(sf => sf.ShelterId == id);
             _unitOfWork.ShelterFeedbackRepository.RemoveRange(shelterFeedbacks);
 
-            // Видалення тварин (Animal) та їхніх залежностей
             var animals = await _unitOfWork.AnimalRepository.GetAllAsync(a => a.ShelterId == id);
             foreach (var animal in animals)
             {
-                // Видалення фотографій тварини (AnimalPhoto)
                 var animalPhotos = await _unitOfWork.AnimalPhotoRepository.GetAllAsync(ap => ap.AnimalId == animal.Id);
                 _unitOfWork.AnimalPhotoRepository.RemoveRange(animalPhotos);
 
-                // Видалення зв'язків UsersAnimal
                 var usersAnimals = await _unitOfWork.UsersAnimalRepository.GetAllAsync(ua => ua.AnimalId == animal.Id);
                 _unitOfWork.UsersAnimalRepository.RemoveRange(usersAnimals);
 
-                // Видалення заявок на усиновлення (AdoptionRequest)
                 var adoptionRequests = await _unitOfWork.AdoptionRequestRepository.GetAllAsync(ar => ar.AnimalId == animal.Id);
                 _unitOfWork.AdoptionRequestRepository.RemoveRange(adoptionRequests);
             }
-            _unitOfWork.AnimalRepository.RemoveRange(animals); // Видалити всіх тварин притулку
+            _unitOfWork.AnimalRepository.RemoveRange(animals);
 
-            // Видалення самого притулку
             _unitOfWork.ShelterRepository.Remove(shelter);
 
-            // Збереження змін
             await _unitOfWork.SaveAsync();
 
             return NoContent();
