@@ -226,8 +226,7 @@ namespace ShelterApp
                 CreatedAtUtc = createdFeedback.CreatedAtUtc,
                 User = createdFeedback.User == null ? null : new UserSummaryDto
                 {
-                    Name = createdFeedback.User.Name,
-                    Surname = createdFeedback.User.Surname,
+                    Username = createdFeedback.User.UserName,
                     AvatarUrl = createdFeedback.User.AvatarUrl
                 }
             };
