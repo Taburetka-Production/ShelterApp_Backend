@@ -104,14 +104,13 @@ using (var scope = app.Services.CreateScope())
     var services = scope.ServiceProvider;
     try
     {
-        var dbContext = services.GetRequiredService<YourApplicationDbContext>();
+        var dbContext = services.GetRequiredService<ApplicationDbContext>();
         Console.WriteLine("Attempting to apply database migrations...");
         dbContext.Database.Migrate();
         Console.WriteLine("Database migrations applied successfully or no pending migrations found.");
     }
     catch (Exception ex)
     {
-        var logger = services.GetRequiredService<ILogger<Program>>();
         Console.WriteLine("An error occurred while migrating the database.");
         Environment.Exit(1);
     }
