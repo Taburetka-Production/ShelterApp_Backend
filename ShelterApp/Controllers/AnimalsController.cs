@@ -32,6 +32,7 @@ namespace ShelterApp
                 id = a.Id,
                 createdAtUtc = a.CreatedAtUtc,
                 name = a.Name,
+                slug = a.Slug,
                 species = a.Species,
                 breed = a.Breed,
                 age = a.Age,
@@ -47,7 +48,7 @@ namespace ShelterApp
             return Ok(animalsResponse);
         }
 
-        [HttpGet("byslug/{slug}")]
+        [HttpGet("{slug}")]
         public async Task<ActionResult<Animal>> GetAnimalBySlug(string slug)
         {
             if (_unitOfWork.AnimalRepository == null)
@@ -103,8 +104,59 @@ namespace ShelterApp
             return Ok(animalResponse);
         }
 
+        [HttpPost("{slug}/toggle-save")]
+        [Authorize]
+        public async Task<IActionResult> ToggleSaveAnimalBySlug(string slug)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var animal = await _unitOfWork.AnimalRepository.GetFirstOrDefaultAsync(a => a.Slug == slug.ToLowerInvariant());
+            if (animal == null)
+            {
+                return NotFound("Animal not found.");
+            }
+
+            var existingUserAnimal = await _unitOfWork.UsersAnimalRepository.GetFirstOrDefaultAsync(
+                filter: ua => ua.AnimalId == animal.Id && ua.UserId == userId);
+
+            bool isNowSaved;
+
+            if (existingUserAnimal != null)
+            {
+                _unitOfWork.UsersAnimalRepository.Remove(existingUserAnimal);
+                isNowSaved = false;
+            }
+            else
+            {
+                var newUserAnimal = new UsersAnimal
+                {
+                    Id = Guid.NewGuid(),
+                    AnimalId = animal.Id,
+                    UserId = userId,
+                    CreatedAtUtc = DateTime.UtcNow
+                };
+                await _unitOfWork.UsersAnimalRepository.AddAsync(newUserAnimal);
+                isNowSaved = true;
+            }
+
+            try
+            {
+                await _unitOfWork.SaveAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(500, "An error occurred while updating the save status.");
+            }
+
+            return Ok(new SaveToggleResultDto { IsSaved = isNowSaved });
+        }
+
         [HttpPost("AddAnimal")]
-        //[Authorize(Roles = "ShelterAdmin")]
+        [Authorize(Roles = "ShelterAdmin")]
         public async Task<IActionResult> CreateAnimal([FromBody] CreateAnimalDto dto)
         {
             if (!ModelState.IsValid)
@@ -124,7 +176,6 @@ namespace ShelterApp
             string finalSlug = baseSlug;
             int counter = 1;
 
-            // Ensure the slug is unique
             while (await _unitOfWork.AnimalRepository.ExistsAsync(a => a.Slug == finalSlug))
             {
                 finalSlug = $"{baseSlug}-{counter}";
@@ -135,7 +186,7 @@ namespace ShelterApp
             {
                 Id = Guid.NewGuid(),
                 Name = dto.Name,
-                Slug = finalSlug, // <-- *** ASSIGN THE CALCULATED SLUG HERE ***
+                Slug = finalSlug,
                 Species = dto.Species,
                 Breed = dto.Breed,
                 Age = dto.Age,
@@ -149,7 +200,7 @@ namespace ShelterApp
                 CreatedAtUtc = DateTime.UtcNow
             };
 
-            if (dto.PhotoUrls != null && dto.PhotoUrls.Any()) // Good practice to check if list has items
+            if (dto.PhotoUrls != null && dto.PhotoUrls.Any())
             {
                 animal.Photos = dto.PhotoUrls.Select(url => new AnimalPhoto
                 {
@@ -158,7 +209,7 @@ namespace ShelterApp
                     AnimalId = animal.Id
                 }).ToList();
             }
-            else // Initialize Photos to an empty list if none provided
+            else
             {
                 animal.Photos = new List<AnimalPhoto>();
             }
@@ -167,7 +218,6 @@ namespace ShelterApp
             await _unitOfWork.AnimalRepository.AddAsync(animal);
             await _unitOfWork.SaveAsync();
 
-            // Now animal.Slug has the correct value
             return CreatedAtAction(nameof(GetAnimalBySlug), new { slug = animal.Slug }, animal);
         }
 

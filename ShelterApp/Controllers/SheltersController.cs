@@ -37,7 +37,7 @@ namespace ShelterApp
             return Ok(shelterDtos);
         }
 
-        [HttpGet("byslug/{slug}")]
+        [HttpGet("{slug}")]
         public async Task<ActionResult<ShelterDetailDto>> GetShelterBySlug(string slug)
         {
             if (string.IsNullOrWhiteSpace(slug))
@@ -81,7 +81,6 @@ namespace ShelterApp
                 },
                 Animals = shelterEntity.Animals?.Select(a => new AnimalSummaryDto
                 {
-                    Id = a.Id,
                     Name = a.Name,
                     Species = a.Species,
                     Status = a.Status,
@@ -95,7 +94,6 @@ namespace ShelterApp
                     CreatedAtUtc = f.CreatedAtUtc,
                     User = f.User == null ? null : new UserSummaryDto
                     {
-                        Id = f.User.Id,
                         Name = f.User.Name,
                         Surname = f.User.Surname,
                         AvatarUrl = f.User.AvatarUrl
@@ -106,8 +104,140 @@ namespace ShelterApp
             return Ok(shelterDto);
         }
 
+        [HttpPost("{slug}/toggle-save")]
+        [Authorize]
+        public async Task<IActionResult> ToggleSaveShelterBySlug(string slug)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            var shelter = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(s => s.Slug == slug.ToLowerInvariant());
+            if (shelter == null)
+            {
+                return NotFound("Shelter not found.");
+            }
+
+            var existingUserShelter = await _unitOfWork.UsersShelterRepository.GetFirstOrDefaultAsync(
+                filter: us => us.ShelterId == shelter.Id && us.UserId == userId);
+
+            bool isNowSaved;
+
+            if (existingUserShelter != null)
+            {
+                _unitOfWork.UsersShelterRepository.Remove(existingUserShelter);
+                isNowSaved = false;
+            }
+            else
+            {
+                var newUserShelter = new UsersShelter
+                {
+                    Id = Guid.NewGuid(),
+                    ShelterId = shelter.Id,
+                    UserId = userId,
+                    CreatedAtUtc = DateTime.UtcNow
+                };
+                await _unitOfWork.UsersShelterRepository.AddAsync(newUserShelter);
+                isNowSaved = true;
+            }
+
+            try
+            {
+                await _unitOfWork.SaveAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(500, "An error occurred while updating the save status.");
+            }
+
+            return Ok(new SaveToggleResultDto { IsSaved = isNowSaved });
+        }
+
+        [HttpPost("{slug}/feedback")]
+        [Authorize]
+        public async Task<IActionResult> AddShelterFeedbackBySlug(string slug, [FromBody] CreateShelterFeedbackDto feedbackDto)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized();
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var shelter = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(s => s.Slug == slug.ToLowerInvariant());
+            if (shelter == null)
+            {
+                return NotFound("Shelter not found.");
+            }
+
+            var existingFeedback = await _unitOfWork.ShelterFeedbackRepository.ExistsAsync(
+                sf => sf.ShelterId == shelter.Id && sf.UserId == userId
+            );
+            if (existingFeedback)
+            {
+                return Conflict("User has already submitted feedback for this shelter.");
+            }
+
+            var newFeedback = new ShelterFeedback
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                ShelterId = shelter.Id,
+                Comment = feedbackDto.Comment,
+                Rating = feedbackDto.Rating,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+
+            await _unitOfWork.ShelterFeedbackRepository.AddAsync(newFeedback);
+
+            double currentTotalRating = shelter.Rating * shelter.ReviewsCount;
+            int newReviewsCount = shelter.ReviewsCount + 1;
+            double newAverageRating = (currentTotalRating + newFeedback.Rating) / newReviewsCount;
+
+            shelter.Rating = newAverageRating;
+            shelter.ReviewsCount = newReviewsCount;
+            shelter.UpdatedAtUtc = DateTime.UtcNow;
+            shelter.UserLastModified = Guid.Parse(userId);
+
+            try
+            {
+                await _unitOfWork.SaveAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while saving the feedback.");
+            }
+
+
+            var createdFeedback = await _unitOfWork.ShelterFeedbackRepository.GetFirstOrDefaultAsync(
+                filter: sf => sf.Id == newFeedback.Id,
+                includeProperties: "User"
+            );
+
+            var responseDto = new ShelterFeedbackDto
+            {
+                Comment = createdFeedback.Comment,
+                Rating = createdFeedback.Rating,
+                CreatedAtUtc = createdFeedback.CreatedAtUtc,
+                User = createdFeedback.User == null ? null : new UserSummaryDto
+                {
+                    Name = createdFeedback.User.Name,
+                    Surname = createdFeedback.User.Surname,
+                    AvatarUrl = createdFeedback.User.AvatarUrl
+                }
+            };
+
+            return CreatedAtAction(nameof(GetShelterBySlug), new { slug = shelter.Slug }, responseDto);
+        }
+
         [HttpPost]
-        //[Authorize(Roles = "ShelterAdmin")]
+        [Authorize(Roles = "ShelterAdmin")]
         public async Task<ActionResult<Shelter>> CreateShelter([FromBody] CreateShelterDto dto)
         {
             if (_unitOfWork.ShelterRepository == null)
