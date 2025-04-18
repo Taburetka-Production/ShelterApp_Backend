@@ -375,43 +375,86 @@ namespace ShelterApp
             }
         }
 
-        //[HttpPut("UpdateShelter")]
-        //[Authorize(Roles = "ShelterAdmin,SuperAdmin")]
-        //public async Task<IActionResult> UpdateShelter(Guid id, [FromBody] UpdateShelterDto dto)
-        //{
-        //    var shelter = await _context.Shelters
-        //        .Include(s => s.Address)
-        //        .FirstOrDefaultAsync(s => s.Id == id);
+        [HttpPut("{id}")]
+        [Authorize(Roles = "SuperAdmin")]
+        public async Task<IActionResult> UpdateShelter(Guid id, [FromBody] UpdateShelterDto dto)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized("Користувач не автентифікований.");
+            }
 
-        //    if (shelter == null)
-        //    {
-        //        return NotFound("Shelter not found.");
-        //    }
+            var shelter = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(
+                s => s.Id == id,
+                includeProperties: "Address",
+                tracked: true
+            );
 
-        //    shelter.Name = dto.Name ?? shelter.Name;
-        //    shelter.Rating = dto.Rating ?? shelter.Rating;
-        //    shelter.ReviewsCount = dto.ReviewsCount ?? shelter.ReviewsCount;
-        //    shelter.AnimalsCount = dto.AnimalsCount ?? shelter.AnimalsCount;
-        //    shelter.Description = dto.Description ?? shelter.Description;
-        //    shelter.ImageUrl = dto.ImageUrl ?? shelter.ImageUrl;
+            if (shelter == null)
+            {
+                return NotFound("Shelter not found.");
+            }
 
-        //    if (dto.AddressId.HasValue && dto.AddressId != shelter.AddressId)
-        //    {
-        //        var newAddress = await _context.Addresses.FindAsync(dto.AddressId.Value);
-        //        if (newAddress == null)
-        //        {
-        //            return NotFound("New address not found.");
-        //        }
-        //        shelter.AddressId = newAddress.Id;
-        //        shelter.Address = newAddress;
-        //    }
+            // Оновлення імені та слаг (навіть якщо ім'я не змінилося, але передано явно)
+            if (dto.Name != null)
+            {
+                bool nameChanged = !shelter.Name.Equals(dto.Name.Trim(), StringComparison.OrdinalIgnoreCase);
 
-        //    shelter.UpdatedAtUtc = DateTime.UtcNow;
+                if (nameChanged)
+                {
+                    shelter.Name = dto.Name.Trim();
 
-        //    await _context.SaveChangesAsync();
+                    // Генерація нового слаг тільки при зміні імені
+                    string baseSlug = UrlSlugger.GenerateSlug(shelter.Name);
+                    string finalSlug = baseSlug;
+                    int counter = 1;
 
-        //    return Ok(shelter);
-        //}
+                    while (await _unitOfWork.ShelterRepository.ExistsAsync(s => s.Slug == finalSlug && s.Id != id))
+                    {
+                        finalSlug = $"{baseSlug}-{counter}";
+                        counter++;
+                    }
+                    shelter.Slug = finalSlug;
+                }
+            }
+
+            // Оновлення інших полів
+            shelter.Description = dto.Description ?? shelter.Description;
+            shelter.ImageUrl = dto.ImageUrl ?? shelter.ImageUrl;
+
+            // Оновлення адреси
+            if (dto.Address != null)
+            {
+                shelter.Address ??= new Address();
+
+                shelter.Address.Country = dto.Address.Country ?? shelter.Address.Country;
+                shelter.Address.Region = dto.Address.Region ?? shelter.Address.Region;
+                shelter.Address.District = dto.Address.District ?? shelter.Address.District;
+                shelter.Address.City = dto.Address.City ?? shelter.Address.City;
+                shelter.Address.Street = dto.Address.Street ?? shelter.Address.Street;
+                shelter.Address.Apartments = dto.Address.Apartments ?? shelter.Address.Apartments;
+                shelter.Address.lng = dto.Address.lng;
+                shelter.Address.lat = dto.Address.lat;
+
+                _unitOfWork.AddressRepository.Update(shelter.Address);
+            }
+
+            shelter.UpdatedAtUtc = DateTime.UtcNow;
+            shelter.UserLastModified = Guid.Parse(userId);
+
+            try
+            {
+                _unitOfWork.ShelterRepository.Update(shelter);
+                await _unitOfWork.SaveAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                return StatusCode(500, "Помилка при оновленні притулку");
+            }
+
+            return Ok(await _unitOfWork.ShelterRepository.GetByIdAsync(id, includeProperties: "Address"));
+        }
 
         [HttpDelete("{id}")]
         [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
