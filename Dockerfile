@@ -3,11 +3,11 @@ FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
 WORKDIR /src
 
 # Copy csproj files and restore dependencies first for layer caching
-COPY ["ShelterApp.csproj", "./"]
+COPY ["ShelterApp/ShelterApp.csproj", "./"]
 RUN dotnet restore "ShelterApp.csproj"
 
 # Copy the rest of the source code
-COPY . .
+COPY ./ShelterApp .
 WORKDIR "/src/."
 RUN dotnet build "ShelterApp.csproj" -c Release -o /app/build
 
