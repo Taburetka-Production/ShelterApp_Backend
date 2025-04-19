@@ -1,7 +1,10 @@
 ﻿namespace ShelterApp
 {
+    using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Mvc;
+    using Microsoft.EntityFrameworkCore;
+    using ShelterApp.DTOs;
     using System.Security.Claims;
     using System.Threading.Tasks;
 
@@ -107,6 +110,63 @@
 
             return NoContent();
 
+        }
+
+        [Authorize]
+        [HttpGet("saved-items")]
+        public async Task<IActionResult> GetSavedItems()
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            // Завантажуємо всі дані за один запит
+            var user = await _userManager.Users
+                .Include(u => u.UsersAnimals)
+                    .ThenInclude(ua => ua.Animal)
+                        .ThenInclude(a => a.Photos)
+                .Include(u => u.UsersShelters)
+                    .ThenInclude(us => us.Shelter)
+                        .ThenInclude(s => s.Address)
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null) return NotFound();
+
+            // Формуємо відповідь
+            var response = new
+            {
+                Animals = user.UsersAnimals
+                    .Select(ua => new AnimalResponseDto
+                    {
+                        Id = ua.Animal.Id,
+                        CreatedAtUtc = ua.Animal.CreatedAtUtc,
+                        Name = ua.Animal.Name,
+                        Species = ua.Animal.Species,
+                        Breed = ua.Animal.Breed,
+                        Age = ua.Animal.Age,
+                        Sex = ua.Animal.Sex,
+                        Size = ua.Animal.Size,
+                        Sterilized = ua.Animal.Sterilized,
+                        Slug = ua.Animal.Slug,
+                        HealthCondition = ua.Animal.HealthCondition,
+                        Description = ua.Animal.Description,
+                        FirstPhotoUrl = ua.Animal.Photos.FirstOrDefault()?.PhotoURL
+                    }),
+                Shelters = user.UsersShelters
+                    .Select(us => new ShelterResponseDto
+                    {
+                        Id = us.Shelter.Id,
+                        Name = us.Shelter.Name,
+                        Rating = us.Shelter.Rating,
+                        AnimalsCount = us.Shelter.AnimalsCount,
+                        ImageUrl = us.Shelter.ImageUrl,
+                        Slug = us.Shelter.Slug,
+                        City = us.Shelter.Address.City,
+                        Region = us.Shelter.Address.Region,
+                        Description = us.Shelter.Description
+                    })
+            };
+
+            return Ok(response);
         }
     }
 }
