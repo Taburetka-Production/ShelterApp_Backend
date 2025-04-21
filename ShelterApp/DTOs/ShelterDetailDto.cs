@@ -11,6 +11,8 @@
         public string ImageUrl { get; set; }
         public string Slug { get; set; }
         public AddressDto Address { get; set; }
+        public bool IsSaved { get; set; }
+        public bool HasSubmittedFeedback { get; set; }
         public List<AnimalSummaryDto> Animals { get; set; } = new List<AnimalSummaryDto>();
         public List<ShelterFeedbackDto> Feedbacks { get; set; } = new List<ShelterFeedbackDto>();
 

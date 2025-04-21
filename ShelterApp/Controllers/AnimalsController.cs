@@ -229,6 +229,27 @@ namespace ShelterApp
             var animal = await _unitOfWork.AnimalRepository.GetByIdAsync(id, includeProperties: "Photos");
             if (animal == null) return NotFound("Animal not found.");
 
+            if (dto.Name != null)
+            {
+                bool nameChanged = !animal.Name.Equals(dto.Name.Trim(), StringComparison.OrdinalIgnoreCase);
+
+                if (nameChanged)
+                {
+                    animal.Name = dto.Name.Trim();
+
+                    string baseSlug = UrlSlugger.GenerateSlug(animal.Name);
+                    string finalSlug = baseSlug;
+                    int counter = 1;
+
+                    while (await _unitOfWork.ShelterRepository.ExistsAsync(s => s.Slug == finalSlug && s.Id != id))
+                    {
+                        finalSlug = $"{baseSlug}-{counter}";
+                        counter++;
+                    }
+                    animal.Slug = finalSlug;
+                }
+            }
+
             animal.Name = dto.Name ?? animal.Name;
             animal.Species = dto.Species ?? animal.Species;
             animal.Breed = dto.Breed ?? animal.Breed;
@@ -313,7 +334,6 @@ namespace ShelterApp
             }
             catch (Exception ex)
             {
-                // Log the exception ex
                 return StatusCode(500, $"An error occurred during animal slug population: {ex.Message}");
             }
         }
@@ -322,14 +342,12 @@ namespace ShelterApp
         [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
         public async Task<IActionResult> DeleteAnimal(Guid id)
         {
-            // Отримання тварини з репозиторію (включаючи залежні сутності, якщо потрібно)
             var animal = await _unitOfWork.AnimalRepository.GetByIdAsync(id);
             if (animal == null)
             {
                 return NotFound("Animal not found.");
             }
 
-            // Видалення пов'язаних сутностей
             var animalPhotos = await _unitOfWork.AnimalPhotoRepository.GetAllAsync(ap => ap.AnimalId == id);
             _unitOfWork.AnimalPhotoRepository.RemoveRange(animalPhotos);
 
@@ -339,10 +357,8 @@ namespace ShelterApp
             var usersAnimals = await _unitOfWork.UsersAnimalRepository.GetAllAsync(ua => ua.AnimalId == id);
             _unitOfWork.UsersAnimalRepository.RemoveRange(usersAnimals);
 
-            // Видалення самої тварини
             _unitOfWork.AnimalRepository.Remove(animal);
 
-            // Збереження змін
             await _unitOfWork.SaveAsync();
 
             return NoContent();
