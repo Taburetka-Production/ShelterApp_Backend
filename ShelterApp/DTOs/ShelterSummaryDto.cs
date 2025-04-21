@@ -5,6 +5,7 @@
         public Guid Id { get; set; }
         public string Name { get; set; }
         public double Rating { get; set; }
+        public int ReviewsCount { get; set; }
         public int AnimalsCount { get; set; }
         public string ImageUrl { get; set; }
         public string Slug { get; set; }
