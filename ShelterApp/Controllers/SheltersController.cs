@@ -19,6 +19,17 @@ namespace ShelterApp
         [HttpGet]
         public async Task<ActionResult> GetShelters()
         {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            HashSet<Guid> savedShelterIds = new HashSet<Guid>();
+
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var userShelters = await _unitOfWork.UsersShelterRepository.GetAllAsync(
+                    filter: us => us.UserId == userId
+                );
+                savedShelterIds = new HashSet<Guid>(userShelters.Select(us => us.ShelterId));
+            }
+
             var shelters = await _unitOfWork.ShelterRepository.GetAllAsync(includeProperties: "Animals,Address");
 
             var shelterDtos = shelters.Select(s => new ShelterSummaryDto
@@ -31,7 +42,8 @@ namespace ShelterApp
                 Slug = s.Slug,
                 City = s.Address?.City,
                 Region = s.Address?.Region,
-                Description = s.Description
+                Description = s.Description,
+                IsSaved = !string.IsNullOrEmpty(userId) && savedShelterIds.Contains(s.Id)
             });
 
             return Ok(shelterDtos);
@@ -44,6 +56,9 @@ namespace ShelterApp
             {
                 return BadRequest("Slug cannot be empty.");
             }
+
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            bool isUserLoggedIn = !string.IsNullOrEmpty(userId);
 
             string includeProps = "Address,Animals.Photos,ShelterFeedbacks,ShelterFeedbacks.User";
 
@@ -58,6 +73,33 @@ namespace ShelterApp
                 return NotFound($"Shelter with slug '{slug}' not found.");
             }
 
+            bool isShelterSavedByUser = false;
+            bool hasUserSubmittedFeedback = false;
+            HashSet<Guid> savedAnimalIds = new HashSet<Guid>();
+
+            if (isUserLoggedIn)
+            {
+                isShelterSavedByUser = await _unitOfWork.UsersShelterRepository.ExistsAsync(
+                    us => us.ShelterId == shelterEntity.Id && us.UserId == userId
+                );
+
+                hasUserSubmittedFeedback = await _unitOfWork.ShelterFeedbackRepository.ExistsAsync(
+                    sf => sf.ShelterId == shelterEntity.Id && sf.UserId == userId
+                );
+
+                if (shelterEntity.Animals != null && shelterEntity.Animals.Any())
+                {
+                    var animalIdsInThisShelter = shelterEntity.Animals.Select(a => a.Id).ToList();
+                    if (animalIdsInThisShelter.Any())
+                    {
+                        var userAnimals = await _unitOfWork.UsersAnimalRepository.GetAllAsync(
+                             filter: ua => ua.UserId == userId && animalIdsInThisShelter.Contains(ua.AnimalId)
+                        );
+                        savedAnimalIds = new HashSet<Guid>(userAnimals.Select(ua => ua.AnimalId));
+                    }
+                }
+            }
+
             var shelterDto = new ShelterDetailDto
             {
                 Id = shelterEntity.Id,
@@ -68,6 +110,8 @@ namespace ShelterApp
                 Description = shelterEntity.Description,
                 ImageUrl = shelterEntity.ImageUrl,
                 Slug = shelterEntity.Slug,
+                IsSaved = isShelterSavedByUser,
+                HasSubmittedFeedback = hasUserSubmittedFeedback,
                 Address = shelterEntity.Address == null ? null : new AddressDto
                 {
                     Country = shelterEntity.Address.Country,
@@ -85,7 +129,8 @@ namespace ShelterApp
                     Species = a.Species,
                     Status = a.Status,
                     Slug = a.Slug,
-                    PrimaryPhotoUrl = a.Photos?.FirstOrDefault()?.PhotoURL
+                    PrimaryPhotoUrl = a.Photos?.FirstOrDefault()?.PhotoURL,
+                    IsSaved = isUserLoggedIn && savedAnimalIds.Contains(a.Id)
                 }).ToList() ?? new List<AnimalSummaryDto>(),
                 Feedbacks = shelterEntity.ShelterFeedbacks?.Select(f => new ShelterFeedbackDto
                 {
@@ -394,7 +439,6 @@ namespace ShelterApp
                 return NotFound("Shelter not found.");
             }
 
-            // Оновлення імені та слаг (навіть якщо ім'я не змінилося, але передано явно)
             if (dto.Name != null)
             {
                 bool nameChanged = !shelter.Name.Equals(dto.Name.Trim(), StringComparison.OrdinalIgnoreCase);
@@ -403,7 +447,6 @@ namespace ShelterApp
                 {
                     shelter.Name = dto.Name.Trim();
 
-                    // Генерація нового слаг тільки при зміні імені
                     string baseSlug = UrlSlugger.GenerateSlug(shelter.Name);
                     string finalSlug = baseSlug;
                     int counter = 1;
@@ -417,11 +460,9 @@ namespace ShelterApp
                 }
             }
 
-            // Оновлення інших полів
             shelter.Description = dto.Description ?? shelter.Description;
             shelter.ImageUrl = dto.ImageUrl ?? shelter.ImageUrl;
 
-            // Оновлення адреси
             if (dto.Address != null)
             {
                 shelter.Address ??= new Address();

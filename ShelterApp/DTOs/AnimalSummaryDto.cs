@@ -7,5 +7,6 @@
         public string Status { get; set; }
         public string Slug { get; set; }
         public string? PrimaryPhotoUrl { get; set; }
+        public bool IsSaved { get; set; }
     }
 }
