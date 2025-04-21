@@ -43,7 +43,18 @@ namespace ShelterApp
                 City = s.Address?.City,
                 Region = s.Address?.Region,
                 Description = s.Description,
-                IsSaved = !string.IsNullOrEmpty(userId) && savedShelterIds.Contains(s.Id)
+                IsSaved = !string.IsNullOrEmpty(userId) && savedShelterIds.Contains(s.Id),
+                Address = s.Address == null ? null : new AddressDto
+                {
+                    Country = s.Address.Country,
+                    Region = s.Address.Region,
+                    District = s.Address.District,
+                    City = s.Address.City,
+                    Street = s.Address.Street,
+                    Apartments = s.Address.Apartments,
+                    lng = s.Address.lng,
+                    lat = s.Address.lat
+                }
             });
 
             return Ok(shelterDtos);
