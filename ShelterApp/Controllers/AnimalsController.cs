@@ -12,7 +12,8 @@ namespace ShelterApp
     {
         private readonly IUnitOfWork _unitOfWork;
 
-        public AnimalsController(IUnitOfWork unitOfWork) {
+        public AnimalsController(IUnitOfWork unitOfWork)
+        {
             _unitOfWork = unitOfWork;
         }
 
@@ -216,6 +217,11 @@ namespace ShelterApp
 
 
             await _unitOfWork.AnimalRepository.AddAsync(animal);
+
+            shelter.AnimalsCount++;
+            shelter.UpdatedAtUtc = DateTime.UtcNow;
+            _unitOfWork.ShelterRepository.Update(shelter);
+
             await _unitOfWork.SaveAsync();
 
             return CreatedAtAction(nameof(GetAnimalBySlug), new { slug = animal.Slug }, animal);
@@ -241,7 +247,7 @@ namespace ShelterApp
                     string finalSlug = baseSlug;
                     int counter = 1;
 
-                    while (await _unitOfWork.ShelterRepository.ExistsAsync(s => s.Slug == finalSlug && s.Id != id))
+                    while (await _unitOfWork.AnimalRepository.ExistsAsync(s => s.Slug == finalSlug && s.Id != id))
                     {
                         finalSlug = $"{baseSlug}-{counter}";
                         counter++;
@@ -259,6 +265,26 @@ namespace ShelterApp
             animal.Sterilized = dto.Sterilized ?? animal.Sterilized;
             animal.HealthCondition = dto.HealthCondition ?? animal.HealthCondition;
             animal.Description = dto.Description ?? animal.Description;
+
+            if (dto.NewPhotoUrls != null && dto.NewPhotoUrls.Any())
+            {
+                animal.Photos ??= new List<AnimalPhoto>();
+
+                foreach (var newUrl in dto.NewPhotoUrls)
+                {
+                    if (!string.IsNullOrWhiteSpace(newUrl))
+                    {
+                        var newPhoto = new AnimalPhoto
+                        {
+                            Id = Guid.NewGuid(),
+                            PhotoURL = newUrl.Trim(),
+                            AnimalId = animal.Id,
+                            CreatedAtUtc = DateTime.UtcNow
+                        };
+                        animal.Photos.Add(newPhoto);
+                    }
+                }
+            }
 
             try
             {
@@ -342,11 +368,13 @@ namespace ShelterApp
         [Authorize(Roles = "ShelterAdmin,SuperAdmin")]
         public async Task<IActionResult> DeleteAnimal(Guid id)
         {
-            var animal = await _unitOfWork.AnimalRepository.GetByIdAsync(id);
+            var animal = await _unitOfWork.AnimalRepository.GetFirstOrDefaultAsync(filter: a => a.Id == id, includeProperties: "Shelter");
             if (animal == null)
             {
                 return NotFound("Animal not found.");
             }
+
+            var shelter = animal.Shelter;
 
             var animalPhotos = await _unitOfWork.AnimalPhotoRepository.GetAllAsync(ap => ap.AnimalId == id);
             _unitOfWork.AnimalPhotoRepository.RemoveRange(animalPhotos);
@@ -358,6 +386,20 @@ namespace ShelterApp
             _unitOfWork.UsersAnimalRepository.RemoveRange(usersAnimals);
 
             _unitOfWork.AnimalRepository.Remove(animal);
+
+            if (shelter != null)
+            {
+                if (shelter.AnimalsCount > 0)
+                {
+                    shelter.AnimalsCount--;
+                }
+                else
+                {
+                    shelter.AnimalsCount = 0;
+                }
+                shelter.UpdatedAtUtc = DateTime.UtcNow;
+                _unitOfWork.ShelterRepository.Update(shelter);
+            }
 
             await _unitOfWork.SaveAsync();
 

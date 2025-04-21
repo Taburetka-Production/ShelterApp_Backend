@@ -37,6 +37,7 @@ namespace ShelterApp
                 Id = s.Id,
                 Name = s.Name,
                 Rating = s.Rating,
+                ReviewsCount = s.ReviewsCount,
                 AnimalsCount = s.AnimalsCount,
                 ImageUrl = s.ImageUrl,
                 Slug = s.Slug,
