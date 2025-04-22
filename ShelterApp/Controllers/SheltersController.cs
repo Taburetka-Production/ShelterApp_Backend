@@ -2,10 +2,38 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ShelterApp.Data;
+using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 
 namespace ShelterApp
 {
+    public class TemporaryCreateShelterInputModel
+    {
+        [Required]
+        public string UserId { get; set; }
+        [Required]
+        public string Name { get; set; }
+        [Required]
+        public string Description { get; set; }
+        [Required]
+        [Url]
+        public string ImageUrl { get; set; }
+        [Required]
+        public string Country { get; set; }
+        [Required]
+        public string Region { get; set; }
+        public string? District { get; set; }
+        [Required]
+        public string City { get; set; }
+        [Required]
+        public string Street { get; set; }
+        public string? Apartments { get; set; }
+        [Required]
+        public double lng { get; set; }
+        [Required]
+        public double lat { get; set; }
+    }
+
     [ApiController]
     [Route("api/[controller]")]
     public class SheltersController : ControllerBase
@@ -14,6 +42,86 @@ namespace ShelterApp
         public SheltersController(IUnitOfWork unitOfWork)
         {
             _unitOfWork = unitOfWork;
+        }
+
+        [HttpPost("create-temporary")]
+        [AllowAnonymous]
+        public async Task<ActionResult<Shelter>> CreateShelterTemporary([FromBody] TemporaryCreateShelterInputModel dto)
+        {
+            if (_unitOfWork.ShelterRepository == null || _unitOfWork.AddressRepository == null)
+            {
+                return Problem("Required repository services are not available.", statusCode: StatusCodes.Status500InternalServerError);
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var address = new Address
+            {
+                Country = dto.Country,
+                Region = dto.Region,
+                District = dto.District,
+                City = dto.City,
+                Street = dto.Street,
+                Apartments = dto.Apartments,
+                lng = dto.lng,
+                lat = dto.lat
+            };
+
+            await _unitOfWork.AddressRepository.AddAsync(address);
+
+            string baseSlug = UrlSlugger.GenerateSlug(dto.Name);
+            string finalSlug = baseSlug;
+            int counter = 1;
+
+            while (await _unitOfWork.ShelterRepository.ExistsAsync(s => s.Slug == finalSlug))
+            {
+                finalSlug = $"{baseSlug}-{counter}";
+                counter++;
+            }
+
+            var shelter = new Shelter
+            {
+                Name = dto.Name,
+                Description = dto.Description,
+                ImageUrl = dto.ImageUrl,
+                Rating = 0.0,
+                ReviewsCount = 0,
+                AnimalsCount = 0,
+                AddressId = address.Id,
+                Address = address,
+                UserId = dto.UserId,
+                Slug = finalSlug,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+
+            try
+            {
+                await _unitOfWork.ShelterRepository.AddAsync(shelter);
+                await _unitOfWork.SaveAsync();
+
+                var createdShelter = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(
+                    filter: s => s.Id == shelter.Id,
+                    includeProperties: "Address"
+                );
+
+                if (createdShelter == null)
+                {
+                    return Problem("Failed to retrieve created shelter.", statusCode: StatusCodes.Status500InternalServerError);
+                }
+
+                return CreatedAtAction(nameof(GetShelterBySlug), new { slug = createdShelter.Slug }, createdShelter);
+            }
+            catch (DbUpdateException dbEx)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Database error occurred: {dbEx.InnerException?.Message ?? dbEx.Message}");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"An unexpected error occurred: {ex.Message}");
+            }
         }
 
         [HttpGet]
