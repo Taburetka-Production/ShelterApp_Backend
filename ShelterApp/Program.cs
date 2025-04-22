@@ -16,7 +16,7 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins("http://localhost:3000",
                           "http://localhost:80",
-                          "https://localhost:80")
+                          "http://ec2-13-61-189-214.eu-north-1.compute.amazonaws.com")
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
