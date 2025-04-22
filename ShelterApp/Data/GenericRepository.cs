@@ -141,6 +141,11 @@ namespace ShelterApp.Data
             return await query.FirstOrDefaultAsync();
         }
 
+        public async Task<TEntity?> GetBySlugAsync(string slug)
+        {
+            return await _dbSet.FirstOrDefaultAsync(e => EF.Property<string>(e, "Slug") == slug);
+        }
+
         public async Task<bool> ExistsAsync(Expression<Func<TEntity, bool>>? filter = null)
         {
             IQueryable<TEntity> query = _dbSet;
