@@ -247,9 +247,9 @@ namespace ShelterApp
                 {
                     Name = a.Name,
                     Species = a.Species,
-                    Status = a.Status,
                     Slug = a.Slug,
                     PrimaryPhotoUrl = a.Photos?.FirstOrDefault()?.PhotoURL,
+                    Description = a.Description,
                     IsSaved = isUserLoggedIn && savedAnimalIds.Contains(a.Id)
                 }).ToList() ?? new List<AnimalSummaryDto>(),
                 Feedbacks = shelterEntity.ShelterFeedbacks?.Select(f => new ShelterFeedbackDto
