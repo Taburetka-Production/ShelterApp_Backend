@@ -17,6 +17,128 @@ namespace ShelterApp
             _unitOfWork = unitOfWork;
         }
 
+        [HttpPost("create-temporary-bulk")]
+        [AllowAnonymous]
+        public async Task<IActionResult> CreateAnimalsTemporaryBulk([FromBody] List<CreateAnimalDto> dtos)
+        {
+            if (_unitOfWork.AnimalRepository == null || _unitOfWork.ShelterRepository == null)
+            {
+                return Problem("Required repository services are not available.", statusCode: StatusCodes.Status500InternalServerError);
+            }
+
+            if (dtos == null || !dtos.Any())
+            {
+                return BadRequest("Animal data array cannot be null or empty.");
+            }
+
+            // Pre-fetch necessary data for efficiency
+            var shelterIds = dtos.Select(d => d.ShelterId).Distinct().ToList();
+            var sheltersDict = (await _unitOfWork.ShelterRepository.GetAllAsync(s => shelterIds.Contains(s.Id)))
+                                     .ToDictionary(s => s.Id);
+
+            var allAnimalSlugs = (await _unitOfWork.AnimalRepository.GetAllAsync(a => !string.IsNullOrEmpty(a.Slug)))
+                                     .Select(a => a.Slug)
+                                     .ToHashSet();
+
+            int successfullyAdded = 0;
+            List<string> errors = new List<string>();
+
+            foreach (var dto in dtos)
+            {
+                // Basic Validation per DTO
+                if (!sheltersDict.TryGetValue(dto.ShelterId, out var shelter))
+                {
+                    errors.Add($"Shelter with ID {dto.ShelterId} not found for animal '{dto.Name ?? "N/A"}'. Skipped.");
+                    continue;
+                }
+                if (string.IsNullOrWhiteSpace(dto.Name))
+                {
+                    errors.Add($"Animal name is missing for an entry with Shelter ID {dto.ShelterId}. Skipped.");
+                    continue;
+                }
+
+                // Slug Generation (with collision check within batch and DB)
+                string baseSlug = UrlSlugger.GenerateSlug(dto.Name);
+                string finalSlug = baseSlug;
+                int counter = 1;
+                while (allAnimalSlugs.Contains(finalSlug))
+                {
+                    finalSlug = $"{baseSlug}-{counter}";
+                    counter++;
+                }
+                allAnimalSlugs.Add(finalSlug); // Add to set for checks within this batch
+
+                var animal = new Animal
+                {
+                    Id = Guid.NewGuid(),
+                    Name = dto.Name,
+                    Slug = finalSlug,
+                    Species = dto.Species,
+                    Breed = dto.Breed,
+                    Age = dto.Age,
+                    Status = "Free", // Default status
+                    ShelterId = dto.ShelterId,
+                    Sex = dto.Sex,
+                    Size = dto.Size,
+                    Sterilized = dto.Sterilized,
+                    HealthCondition = dto.HealthCondition,
+                    Description = dto.Description,
+                    CreatedAtUtc = DateTime.UtcNow
+                };
+
+                if (dto.PhotoUrls != null && dto.PhotoUrls.Any())
+                {
+                    animal.Photos = dto.PhotoUrls.Where(url => !string.IsNullOrWhiteSpace(url)).Select(url => new AnimalPhoto
+                    {
+                        Id = Guid.NewGuid(),
+                        PhotoURL = url.Trim(),
+                        AnimalId = animal.Id,
+                        CreatedAtUtc = DateTime.UtcNow
+                    }).ToList();
+                }
+                else
+                {
+                    animal.Photos = new List<AnimalPhoto>();
+                }
+
+                await _unitOfWork.AnimalRepository.AddAsync(animal);
+
+                // Increment shelter count (EF Core tracks changes on the fetched shelter entity)
+                shelter.AnimalsCount++;
+                shelter.UpdatedAtUtc = DateTime.UtcNow;
+
+                successfullyAdded++;
+            }
+
+            if (successfullyAdded > 0)
+            {
+                try
+                {
+                    await _unitOfWork.SaveAsync();
+                }
+                catch (DbUpdateException ex)
+                {
+                    // Log ex
+                    errors.Add($"A database error occurred during save: {ex.InnerException?.Message ?? ex.Message}. Some animals/counts might not be saved.");
+                    // Consider more robust error handling/rollback if needed
+                    return StatusCode(500, new { Message = "An error occurred while saving bulk animal data.", Errors = errors });
+                }
+                catch (Exception ex)
+                {
+                    // Log ex
+                    errors.Add($"An unexpected error occurred during save: {ex.Message}. Some animals/counts might not be saved.");
+                    return StatusCode(500, new { Message = "An unexpected error occurred while saving bulk animal data.", Errors = errors });
+                }
+            }
+
+            if (errors.Any())
+            {
+                return Ok(new { Message = $"Processed {dtos.Count} records. Added: {successfullyAdded}. See errors for details.", Errors = errors });
+            }
+
+            return Ok(new { Message = $"Successfully added {successfullyAdded} animals." });
+        }
+
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Animal>>> GetAnimals()
         {
