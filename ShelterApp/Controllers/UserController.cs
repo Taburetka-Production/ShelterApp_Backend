@@ -9,7 +9,7 @@ namespace ShelterApp
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Superadmin")]
+    [Authorize(Roles = "SuperAdmin")]
     public class UsersController : ControllerBase
     {
         private readonly UserManager<User> _userManager;
@@ -32,8 +32,7 @@ namespace ShelterApp
             {
                 var roles = await _userManager.GetRolesAsync(user);
 
-                // Пропускаємо користувачів з роллю Superadmin
-                if (roles.Contains("Superadmin"))
+                if (roles.Contains("SuperAdmin"))
                 {
                     continue;
                 }
@@ -136,7 +135,7 @@ namespace ShelterApp
             if (user == null) return NotFound();
 
             var roles = await _userManager.GetRolesAsync(user);
-            if (roles.Contains("Superadmin"))
+            if (roles.Contains("SuperAdmin"))
             {
                 return BadRequest("User is SuperAdmin.");
             }
