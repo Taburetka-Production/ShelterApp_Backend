@@ -141,12 +141,22 @@ namespace ShelterApp
             }
         }
 
-        [HttpPost("feedback-temporary")]
+        [HttpPost("feedback-temporary-bulk")] // Renamed route slightly for clarity
         [AllowAnonymous]
-        public async Task<IActionResult> AddShelterFeedbackTemporary([FromBody] TemporaryCreateFeedbackInputModel dto)
+        // Change parameter to accept a List/Array
+        public async Task<IActionResult> AddShelterFeedbackTemporaryBulk([FromBody] List<TemporaryCreateFeedbackInputModel> dtos)
         {
+            // Check if the input list itself is null or empty
+            if (dtos == null || !dtos.Any())
+            {
+                return BadRequest("Input list cannot be null or empty.");
+            }
+
+            // Basic validation for each item in the list (DataAnnotations)
             if (!ModelState.IsValid)
             {
+                // Note: ModelState validation on list items can be tricky.
+                // You might need more robust manual validation if complex rules apply per item.
                 return BadRequest(ModelState);
             }
 
@@ -155,48 +165,89 @@ namespace ShelterApp
                 return Problem("Required repository services are not available.", statusCode: StatusCodes.Status500InternalServerError);
             }
 
-            var shelter = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(
-                s => s.Id == dto.ShelterId,
-                tracked: true
-            );
-
-            if (shelter == null)
-            {
-                return NotFound($"Shelter with ID {dto.ShelterId} not found.");
-            }
-
-            var newFeedback = new ShelterFeedback
-            {
-                Id = Guid.NewGuid(),
-                UserId = dto.UserId,
-                ShelterId = dto.ShelterId,
-                Comment = dto.Comment,
-                Rating = dto.Rating,
-                CreatedAtUtc = DateTime.UtcNow
-            };
+            // To store created feedbacks if needed for response
+            var createdFeedbacks = new List<ShelterFeedback>();
+            // To keep track of shelters needing updates (avoids fetching multiple times if optimized)
+            var sheltersToUpdate = new Dictionary<Guid, Shelter>();
 
             try
             {
-                await _unitOfWork.ShelterFeedbackRepository.AddAsync(newFeedback);
+                // Loop through each feedback item in the request body
+                foreach (var dto in dtos)
+                {
+                    // --- Fetch Shelter (Tracked) ---
+                    // Optimization: Check if we already fetched this shelter in this batch
+                    if (!sheltersToUpdate.TryGetValue(dto.ShelterId, out var shelter))
+                    {
+                        shelter = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(
+                           s => s.Id == dto.ShelterId,
+                           tracked: true // Track entity for updates
+                       );
 
-                double currentTotalRating = shelter.Rating * shelter.ReviewsCount;
-                int newReviewsCount = shelter.ReviewsCount + 1;
-                double newAverageRating = (newReviewsCount > 0) ? ((currentTotalRating + newFeedback.Rating) / newReviewsCount) : newFeedback.Rating;
+                        if (shelter == null)
+                        {
+                            // Option 1: Stop processing and return error for the batch
+                            // return NotFound($"Shelter with ID {dto.ShelterId} not found. Batch processing stopped.");
 
-                shelter.Rating = newAverageRating;
-                shelter.ReviewsCount = newReviewsCount;
-                shelter.UpdatedAtUtc = DateTime.UtcNow;
+                            // Option 2: Log the error and skip this item (more resilient for seeding)
+                            Console.WriteLine($"Warning: Shelter with ID {dto.ShelterId} not found. Skipping feedback item.");
+                            // Log.Warning($"Shelter with ID {dto.ShelterId} not found. Skipping feedback item for User {dto.UserId}."); // Use a proper logger
+                            continue; // Skip to the next dto in the list
+                        }
+                        // Add fetched shelter to our dictionary for potential reuse
+                        sheltersToUpdate.Add(shelter.Id, shelter);
+                    }
 
-                await _unitOfWork.SaveAsync();
 
-                return Ok(newFeedback);
+                    // --- Create Feedback Object ---
+                    var newFeedback = new ShelterFeedback
+                    {
+                        Id = Guid.NewGuid(),
+                        UserId = dto.UserId,
+                        ShelterId = dto.ShelterId,
+                        Comment = dto.Comment,
+                        Rating = dto.Rating,
+                        CreatedAtUtc = DateTime.UtcNow
+                    };
+
+                    // Add feedback to repository context (will be saved later)
+                    await _unitOfWork.ShelterFeedbackRepository.AddAsync(newFeedback);
+                    createdFeedbacks.Add(newFeedback); // Optional: Collect created objects
+
+                    // --- Update Shelter Rating (using the tracked shelter object) ---
+                    double currentTotalRating = shelter.Rating * shelter.ReviewsCount;
+                    int newReviewsCount = shelter.ReviewsCount + 1;
+                    double newAverageRating = (newReviewsCount > 0) ? ((currentTotalRating + newFeedback.Rating) / newReviewsCount) : newFeedback.Rating;
+
+                    shelter.Rating = newAverageRating;
+                    shelter.ReviewsCount = newReviewsCount;
+                    shelter.UpdatedAtUtc = DateTime.UtcNow;
+                    // No need to call _unitOfWork.ShelterRepository.Update(shelter); as it's tracked
+                } // End foreach loop
+
+                // --- Save All Changes ---
+                // Only save if there were valid items processed
+                if (createdFeedbacks.Any())
+                {
+                    await _unitOfWork.SaveAsync();
+                }
+
+                // Return success - maybe indicate how many were processed
+                return Ok(new { Message = $"Successfully processed {createdFeedbacks.Count} out of {dtos.Count} feedback items.", ProcessedItems = createdFeedbacks.Count });
+                // Or return the list of created objects: return Ok(createdFeedbacks);
             }
             catch (DbUpdateException dbEx)
             {
+                // Log the detailed error
+                Console.WriteLine($"Database error: {dbEx.InnerException?.Message ?? dbEx.Message}");
+                // Log.Error(dbEx, "Database error occurred during bulk feedback processing."); // Use a proper logger
                 return StatusCode(StatusCodes.Status500InternalServerError, $"Database error occurred: {dbEx.InnerException?.Message ?? dbEx.Message}");
             }
             catch (Exception ex)
             {
+                // Log the detailed error
+                Console.WriteLine($"Unexpected error: {ex.Message}");
+                // Log.Error(ex, "An unexpected error occurred during bulk feedback processing."); // Use a proper logger
                 return StatusCode(StatusCodes.Status500InternalServerError, $"An unexpected error occurred: {ex.Message}");
             }
         }
