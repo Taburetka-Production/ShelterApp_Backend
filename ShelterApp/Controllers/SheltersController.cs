@@ -382,6 +382,7 @@ namespace ShelterApp
                 }).ToList() ?? new List<AnimalSummaryDto>(),
                 Feedbacks = shelterEntity.ShelterFeedbacks?.Select(f => new ShelterFeedbackDto
                 {
+                    Id = f.Id,
                     Comment = f.Comment,
                     Rating = f.Rating,
                     CreatedAtUtc = f.CreatedAtUtc,
@@ -525,6 +526,77 @@ namespace ShelterApp
             };
 
             return CreatedAtAction(nameof(GetShelterBySlug), new { slug = shelter.Slug }, responseDto);
+        }
+
+        [HttpDelete("feedback/{id}")]
+        [Authorize(Roles = "SuperAdmin")]
+        public async Task<IActionResult> DeleteShelterFeedback(Guid id)
+        {
+            if (_unitOfWork.ShelterRepository == null || _unitOfWork.ShelterFeedbackRepository == null)
+            {
+                return Problem("Required repository services are not available.", statusCode: StatusCodes.Status500InternalServerError);
+            }
+
+            var feedbackToDelete = await _unitOfWork.ShelterFeedbackRepository.GetFirstOrDefaultAsync(
+                filter: sf => sf.Id == id,
+                includeProperties: "Shelter",
+                tracked: true
+            );
+
+            if (feedbackToDelete == null)
+            {
+                return NotFound($"ShelterFeedback with ID {id} not found.");
+            }
+
+            var shelter = feedbackToDelete.Shelter;
+            if (shelter == null)
+            {
+                Console.WriteLine($"Critical Error: Shelter associated with Feedback ID {id} could not be loaded. Data might be inconsistent.");
+                return Problem($"Could not load Shelter associated with Feedback ID {id}. Cannot proceed.", statusCode: StatusCodes.Status500InternalServerError);
+            }
+
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            Guid? userGuid = null;
+            if (!string.IsNullOrEmpty(userId) && Guid.TryParse(userId, out Guid parsedGuid))
+            {
+                userGuid = parsedGuid;
+            }
+
+            try
+            {
+                double ratingToRemove = feedbackToDelete.Rating;
+                double currentTotalRating = shelter.Rating * shelter.ReviewsCount;
+
+                int newReviewsCount = Math.Max(0, shelter.ReviewsCount - 1);
+                double newAverageRating = 0.0;
+
+                if (newReviewsCount > 0)
+                {
+                    double newTotalRating = Math.Max(0, currentTotalRating - ratingToRemove);
+                    newAverageRating = newTotalRating / newReviewsCount;
+                }
+
+                shelter.Rating = newAverageRating;
+                shelter.ReviewsCount = newReviewsCount;
+                shelter.UpdatedAtUtc = DateTime.UtcNow;
+                shelter.UserLastModified = userGuid;
+
+                _unitOfWork.ShelterFeedbackRepository.Remove(feedbackToDelete);
+
+                await _unitOfWork.SaveAsync();
+
+                return NoContent();
+            }
+            catch (DbUpdateException dbEx)
+            {
+                Console.WriteLine($"Database error: {dbEx.InnerException?.Message ?? dbEx.Message}");
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Database error occurred while deleting feedback: {dbEx.InnerException?.Message ?? dbEx.Message}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Unexpected error: {ex.Message}");
+                return StatusCode(StatusCodes.Status500InternalServerError, $"An unexpected error occurred while deleting feedback: {ex.Message}");
+            }
         }
 
         [HttpPost]
