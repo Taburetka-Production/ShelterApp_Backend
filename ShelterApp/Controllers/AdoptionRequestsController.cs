@@ -42,6 +42,7 @@ public class AdoptionRequestsController : ControllerBase
         // 3. Відобразити потрібні поля
         var result = requests.Select(request => new
         {
+            Id = request.Id,
             UserName = request.User.Name,
             UserSurname = request.User.Surname,
             UserEmail = request.User.Email,
@@ -83,5 +84,35 @@ public class AdoptionRequestsController : ControllerBase
         await _unitOfWork.SaveAsync();
 
         return Ok(request);
+    }
+
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "ShelterAdmin")]
+    public async Task<IActionResult> DeleteAdoptionRequest(Guid id)
+    {
+        // 1. Знайти заявку за ID
+        var request = await _unitOfWork.AdoptionRequestRepository.GetByIdAsync(
+            id,
+            includeProperties: "Animal"
+        );
+
+        if (request == null)
+        {
+            return NotFound("Adoption request not found");
+        }
+
+        // 2. Оновити статус тварини на "Free"
+        var animal = await _unitOfWork.AnimalRepository.GetByIdAsync(request.AnimalId);
+        if (animal != null)
+        {
+            animal.Status = "Free";
+            _unitOfWork.AnimalRepository.Update(animal);
+        }
+
+        // 3. Видалити заявку
+        _unitOfWork.AdoptionRequestRepository.Remove(request);
+        await _unitOfWork.SaveAsync();
+
+        return NoContent(); // 204 No Content
     }
 }
