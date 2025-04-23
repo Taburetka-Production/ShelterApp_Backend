@@ -43,6 +43,8 @@ namespace ShelterApp.Data
             string? includeProperties = null,
             bool tracked = true);
 
+        Task<T?> GetBySlugAsync(string slug);
+
         Task<bool> ExistsAsync(Expression<Func<T, bool>>? filter = null);
     }
 }
