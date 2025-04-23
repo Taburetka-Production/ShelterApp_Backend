@@ -42,6 +42,7 @@ public class AdoptionRequestsController : ControllerBase
         // 3. Відобразити потрібні поля
         var result = requests.Select(request => new
         {
+            Id = request.Id,
             UserName = request.User.Name,
             UserSurname = request.User.Surname,
             UserEmail = request.User.Email,
@@ -83,5 +84,88 @@ public class AdoptionRequestsController : ControllerBase
         await _unitOfWork.SaveAsync();
 
         return Ok(request);
+    }
+
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "ShelterAdmin")]
+    public async Task<IActionResult> RejectAdoptionRequest(Guid id)
+    {
+        // 1. Знайти заявку за ID
+        var request = await _unitOfWork.AdoptionRequestRepository.GetByIdAsync(
+            id,
+            includeProperties: "Animal"
+        );
+
+        if (request == null)
+        {
+            return NotFound("Adoption request not found");
+        }
+
+        // 2. Оновити статус тварини на "Free"
+        var animal = await _unitOfWork.AnimalRepository.GetByIdAsync(request.AnimalId);
+        if (animal != null)
+        {
+            animal.Status = "Free";
+            _unitOfWork.AnimalRepository.Update(animal);
+        }
+
+        // 3. Видалити заявку
+        _unitOfWork.AdoptionRequestRepository.Remove(request);
+        await _unitOfWork.SaveAsync();
+
+        return NoContent(); // 204 No Content
+    }
+
+    [HttpPost("confirm/{id}")]
+    [Authorize(Roles = "ShelterAdmin")]
+    public async Task<IActionResult> ConfirmAdoptionRequest(Guid id)
+    {
+        // 1. Знайти заявку за ID
+        var request = await _unitOfWork.AdoptionRequestRepository.GetByIdAsync(id);
+        if (request == null)
+        {
+            return NotFound("Adoption request not found");
+        }
+
+        // 2. Отримати ID тварини з заявки
+        var animalId = request.AnimalId;
+
+        // 3. Видалити тваринку (використовуємо логіку з AnimalsController)
+        var animal = await _unitOfWork.AnimalRepository.GetFirstOrDefaultAsync(
+            a => a.Id == animalId,
+            includeProperties: "Shelter"
+        );
+
+        if (animal == null)
+        {
+            return NotFound("Animal not found");
+        }
+
+        // Видалення фото тварини
+        var animalPhotos = await _unitOfWork.AnimalPhotoRepository.GetAllAsync(ap => ap.AnimalId == animalId);
+        _unitOfWork.AnimalPhotoRepository.RemoveRange(animalPhotos);
+
+        // Видалення зв'язків з UsersAnimal
+        var usersAnimals = await _unitOfWork.UsersAnimalRepository.GetAllAsync(ua => ua.AnimalId == animalId);
+        _unitOfWork.UsersAnimalRepository.RemoveRange(usersAnimals);
+
+        // Оновлення лічильника притулку
+        var shelter = animal.Shelter;
+        if (shelter != null && shelter.AnimalsCount > 0)
+        {
+            shelter.AnimalsCount--;
+            _unitOfWork.ShelterRepository.Update(shelter);
+        }
+
+        // Видалення тварини
+        _unitOfWork.AnimalRepository.Remove(animal);
+
+        // 4. Видалити саму заявку
+        _unitOfWork.AdoptionRequestRepository.Remove(request);
+
+        // 5. Зберегти зміни
+        await _unitOfWork.SaveAsync();
+
+        return NoContent(); // 204 No Content
     }
 }
