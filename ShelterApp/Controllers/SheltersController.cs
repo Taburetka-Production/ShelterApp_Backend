@@ -34,6 +34,23 @@ namespace ShelterApp
         public double lat { get; set; }
     }
 
+    public class TemporaryCreateFeedbackInputModel
+    {
+        [Required]
+        public string UserId { get; set; }
+
+        [Required]
+        public Guid ShelterId { get; set; }
+
+        [Required]
+        [Range(1, 5, ErrorMessage = "Rating must be between 1 and 5.")]
+        public double Rating { get; set; }
+
+        [Required]
+        [MaxLength(1000, ErrorMessage = "Comment cannot exceed 1000 characters.")]
+        public string Comment { get; set; }
+    }
+
     [ApiController]
     [Route("api/[controller]")]
     public class SheltersController : ControllerBase
@@ -113,6 +130,66 @@ namespace ShelterApp
                 }
 
                 return CreatedAtAction(nameof(GetShelterBySlug), new { slug = createdShelter.Slug }, createdShelter);
+            }
+            catch (DbUpdateException dbEx)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"Database error occurred: {dbEx.InnerException?.Message ?? dbEx.Message}");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, $"An unexpected error occurred: {ex.Message}");
+            }
+        }
+
+        [HttpPost("feedback-temporary")]
+        [AllowAnonymous]
+        public async Task<IActionResult> AddShelterFeedbackTemporary([FromBody] TemporaryCreateFeedbackInputModel dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            if (_unitOfWork.ShelterRepository == null || _unitOfWork.ShelterFeedbackRepository == null)
+            {
+                return Problem("Required repository services are not available.", statusCode: StatusCodes.Status500InternalServerError);
+            }
+
+            var shelter = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(
+                s => s.Id == dto.ShelterId,
+                tracked: true
+            );
+
+            if (shelter == null)
+            {
+                return NotFound($"Shelter with ID {dto.ShelterId} not found.");
+            }
+
+            var newFeedback = new ShelterFeedback
+            {
+                Id = Guid.NewGuid(),
+                UserId = dto.UserId,
+                ShelterId = dto.ShelterId,
+                Comment = dto.Comment,
+                Rating = dto.Rating,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+
+            try
+            {
+                await _unitOfWork.ShelterFeedbackRepository.AddAsync(newFeedback);
+
+                double currentTotalRating = shelter.Rating * shelter.ReviewsCount;
+                int newReviewsCount = shelter.ReviewsCount + 1;
+                double newAverageRating = (newReviewsCount > 0) ? ((currentTotalRating + newFeedback.Rating) / newReviewsCount) : newFeedback.Rating;
+
+                shelter.Rating = newAverageRating;
+                shelter.ReviewsCount = newReviewsCount;
+                shelter.UpdatedAtUtc = DateTime.UtcNow;
+
+                await _unitOfWork.SaveAsync();
+
+                return Ok(newFeedback);
             }
             catch (DbUpdateException dbEx)
             {
