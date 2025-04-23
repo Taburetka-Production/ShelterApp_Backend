@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using ShelterApp;
 using ShelterApp.Data;
 using System;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 [ApiController]
@@ -15,45 +16,71 @@ public class AdoptionRequestsController : ControllerBase
     {
         _unitOfWork = unitOfWork;
     }
-
-    [HttpPost]
-    [Authorize]
-    public async Task<IActionResult> CreateAdoptionRequest([FromBody] AdoptionRequest request)
+    [Authorize(Roles = "ShelterAdmin")]
+    [HttpGet("by-shelter/{shelterSlug}")]
+    public async Task<IActionResult> GetAdoptionRequestsByShelter(string shelterSlug)
     {
-        if (!ModelState.IsValid)
+        // 1. Знайти шелтер за слагом
+        var shelter = await _unitOfWork.ShelterRepository.GetFirstOrDefaultAsync(
+            filter: s => s.Slug == shelterSlug,
+            includeProperties: "Animals"
+        );
+
+        if (shelter == null)
         {
-            return BadRequest(ModelState);
+            return NotFound("Shelter not found");
         }
 
-        // Перевірка, чи існує тварина
-        var animal = await _unitOfWork.AnimalRepository.GetByIdAsync(request.AnimalId);
-        if (animal == null)
-        {
-            return NotFound("Animal not found");
-        }
+        // 2. Отримати всі adoption requests для тварин цього шелтера
+        var animalIds = shelter.Animals.Select(a => a.Id).ToList();
 
-        // Додаємо дату заявки та статус
-        request.RequestDate = DateTime.UtcNow;
-        request.Status = "Pending";
-
-        await _unitOfWork.AdoptionRequestRepository.AddAsync(request);
-        await _unitOfWork.SaveAsync();
-
-        return CreatedAtAction(nameof(GetAdoptionRequest), new { id = request.Id }, request);
-    }
-
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetAdoptionRequest(Guid id)
-    {
-        var request = await _unitOfWork.AdoptionRequestRepository.GetByIdAsync(
-            id,
+        var requests = await _unitOfWork.AdoptionRequestRepository.GetAllAsync(
+            filter: r => animalIds.Contains(r.AnimalId),
             includeProperties: "User,Animal"
         );
 
-        if (request == null)
+        // 3. Відобразити потрібні поля
+        var result = requests.Select(request => new
         {
-            return NotFound();
-        }
+            UserName = request.User.Name,
+            UserSurname = request.User.Surname,
+            UserEmail = request.User.Email,
+            UserPhone = request.User.PhoneNumber,
+            AnimalName = request.Animal.Name,
+            AnimalSlug = request.Animal.Slug
+        });
+
+        return Ok(result);
+    }
+
+    [HttpPost]
+    [Authorize(Roles = "User")]
+    public async Task<IActionResult> CreateAdoptionRequest([FromBody] string animalSlug)
+    {
+        // Отримання ID поточного користувача
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var user = await _unitOfWork.UserRepository.GetByIdAsync(currentUserId);
+        if (user == null) return Unauthorized("User not found");
+
+        // Пошук тварини за слагом
+        var animal = await _unitOfWork.AnimalRepository.GetBySlugAsync(animalSlug);
+        if (animal == null) return NotFound("Animal not found");
+
+        // Автоматичне заповнення даних
+        var request = new AdoptionRequest
+        {
+            UserId = currentUserId,
+            AnimalId = animal.Id, // Використовуємо знайдений animalId
+            RequestDate = DateTime.UtcNow,
+            Status = "In processing"
+        };
+
+        // Оновлення статусу тварини
+        animal.Status = "Reserve";
+        _unitOfWork.AnimalRepository.Update(animal);
+
+        await _unitOfWork.AdoptionRequestRepository.AddAsync(request);
+        await _unitOfWork.SaveAsync();
 
         return Ok(request);
     }
